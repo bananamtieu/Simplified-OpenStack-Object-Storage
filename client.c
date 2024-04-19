@@ -14,10 +14,50 @@ Chan Nam Tieu
 #include <arpa/inet.h>
 
 void _upload(char* userFilename, int socket) {
+    char username[10], filename[10];
+    char *token = strtok(userFilename, "/");
+    strcpy(username, token);
+    token = strtok(userFilename, "/");
+    strcpy(filename, token);
 
+    FILE *fileToUpload = fopen(filename, "r");
+    char buff[1024];
+    if (fileToUpload != NULL) {
+        int bytesRead;
+        while ((bytesRead = fread(buff, sizeof(char), sizeof(buff), fileToUpload)) > 0) {
+            write(socket, buff, bytesRead);
+        }
+        fclose(fileToUpload);
+    }
+    else {
+        printf("File does not exist: %s\n", filename);
+    }
+    read(socket, buff, 1024);
+    printf("Server's message: %s\n", buff);
 }
 
 void _download(char* userFilename, int socket) {
+    char buff[1024];
+    // Receving message from server
+    read(socket, buff, 1024);
+    if (strcmp(buff, "The file is not exist.") == 0) {
+        printf("%s\n", buff);
+    }
+
+    char username[10], filename[10];
+    char *token = strtok(userFilename, "/");
+    strcpy(username, token);
+    token = strtok(userFilename, "/");
+    strcpy(filename, token);
+
+    FILE *fileToDownload = fopen(filename, "w");
+    if (strcmp(filename, "q") != 0) {
+        int bytesRead;
+        while ((bytesRead = read(socket, buff, 1024)) > 0) {
+            fwrite(buff, sizeof(char), bytesRead, fileToDownload);
+        }
+        fclose(fileToDownload);
+    }
 
 }
 
@@ -30,11 +70,15 @@ void _delete(char* userFilename, int socket) {
 }
 
 void _add(char* userFilename, int socket) {
-
+    char buff[1024];
+    read(socket, buff, 1024);
+    printf("Server's message: %s\n", buff);
 }
 
 void _remove(char* userFilename, int socket) {
-
+    char buff[1024];
+    read(socket, buff, 1024);
+    printf("Server's message: %s\n", buff);
 }
 
 int main(int argc, char *argv[]){
@@ -45,7 +89,7 @@ int main(int argc, char *argv[]){
     }
     //Declare socket file descriptor and buffer
     int sockfd;
-    char input[20], command[10], param[10];
+    char input[30], command[10], arg[20];
 
     //Declare server address to accept
     struct sockaddr_in servAddr;
@@ -85,25 +129,25 @@ int main(int argc, char *argv[]){
         char *token = strtok(input, " ");
         strcpy(command, token);
         token = strtok(input, " ");
-        strcpy(param, token);
+        strcpy(arg, token);
 
         if (strcmp(command, "upload") == 0) {
-            _upload(param, sockfd);
+            _upload(arg, sockfd);
         }
         if (strcmp(command, "download") == 0) {
-            _download(param, sockfd);
+            _download(arg, sockfd);
         }
         if (strcmp(command, "list") == 0) {
-            _list(param, sockfd);
+            _list(arg, sockfd);
         }
         if (strcmp(command, "delete") == 0) {
-            _delete(param, sockfd);
+            _delete(arg, sockfd);
         }
         if (strcmp(command, "add") == 0) {
-            _add(param, sockfd);
+            _add(arg, sockfd);
         }
         if (strcmp(command, "remove") == 0) {
-            _remove(param, sockfd);
+            _remove(arg, sockfd);
         }
 
     }
