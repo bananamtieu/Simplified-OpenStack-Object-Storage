@@ -45,7 +45,7 @@ int main(int argc, char *argv[]){
     }
     //Declare socket file descriptor and buffer
     int sockfd;
-    char *input, *command, *param;
+    char input[20], command[10], param[10];
 
     //Declare server address to accept
     struct sockaddr_in servAddr;
@@ -78,6 +78,7 @@ int main(int argc, char *argv[]){
         // Prompt user to enter command
         printf("Please enter a command: ");
         scanf("%s", input);
+        printf("%s", input);
 
         write(sockfd, input, sizeof(input));
 
