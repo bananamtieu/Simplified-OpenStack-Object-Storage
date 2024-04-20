@@ -11,6 +11,7 @@ Step 1: TCP server that accepts a client connection for file transfer.
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 //Declare socket file descriptor.
 int sockfd, connfd, rb, sin_size;
@@ -24,8 +25,8 @@ struct sockaddr_in servAddr, clienAddr;
 
 int main(int argc, char *argv[]){
     //Get from the command line, server IP, src and dst files.
-    if (argc != 3){
-        printf ("Usage: %s <# partition power> <client's IP> \n",argv[0]);
+    if (argc != 2){
+        printf ("Usage: %s <# partition power> <available disks> \n",argv[0]);
         exit(0);
     }
 
@@ -39,19 +40,23 @@ int main(int argc, char *argv[]){
         exit(0);
     }
 
+    int bindFail = 1;
     int portNumber;
-    printf("Please enter a port number: ");
-    scanf("%d", &portNumber);
+    srand(time(0));
+    while (bindFail) {
+        portNumber = rand()%8400 + 1024;
+        //Setup the server address to bind using socket addressing structure
+        servAddr.sin_family = AF_INET;
+        servAddr.sin_port = htons(portNumber);
+        servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    //Setup the server address to bind using socket addressing structure
-    servAddr.sin_family = AF_INET;
-    servAddr.sin_port = htons(portNumber);
-    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    //bind IP address and port for server endpoint socket
-    if ((bind(sockfd, (struct sockaddr *)&servAddr, sizeof(servAddr))) < 0){
-        perror("Failure to bind server address to the endpoint socket");
-        exit(0);
+        //bind IP address and port for server endpoint socket
+        if ((bind(sockfd, (struct sockaddr *)&servAddr, sizeof(servAddr))) < 0){
+            perror("Failure to bind server address to the endpoint socket. Finding the next available port.");
+        }
+        else {
+            bindFail = 0;
+        }
     }
 
     // Server listening to the socket endpoint, and can queue 5 client requests

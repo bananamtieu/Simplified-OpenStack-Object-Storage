@@ -62,11 +62,31 @@ void _download(char* userFilename, int socket) {
 }
 
 void _list(char* userFilename, int socket) {
+    char username[10], filename[10];
+    char *token = strtok(userFilename, "/");
+    strcpy(username, token);
+    token = strtok(userFilename, "/");
+    strcpy(filename, token);
 
+    FILE *outputFile = fopen("output.txt", "w");
+    char buff[1024];
+    int bytesRead;
+    while ((bytesRead = read(socket, buff, 1024)) > 0) {
+        fwrite(buff, sizeof(char), bytesRead, outputFile);
+    }
+    fclose(outputFile);
 }
 
 void _delete(char* userFilename, int socket) {
+    char buff[1024];
+    // Receving message from server
+    read(socket, buff, 1024);
+    if (strcmp(buff, "The file is not exist.") == 0) {
+        printf("%s\n", buff);
+    }
 
+    read(socket, buff, 1024);
+    printf("%s\n", buff);
 }
 
 void _add(char* userFilename, int socket) {
