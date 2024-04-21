@@ -1,7 +1,8 @@
 #ifndef PREPROCESS_H
 #define PREPROCESS_H
+using namespace std;
 
-void hex_to_binary(const char *hex_string, char *binary_string);
-char *md5_hash(const char *input);
+string hex_to_binary(const string& hex_string);
+string md5_hash(const string& input, int partition);
 
 #endif

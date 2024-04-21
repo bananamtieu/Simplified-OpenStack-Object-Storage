@@ -11,10 +11,11 @@
 #include <arpa/inet.h>
 #include <sstream>
 #include <set>
+#include <vector>
+#include <map>
 #include "preprocess.h"
 
 #define MAX_LOGIN_NAME 20
-#define MAX_NUMDISKS 10
 #define MAX_IPLENGTH 20
 #define MAX_NUMFILES 100
 #define MAX_PATHLENGTH 40
@@ -24,22 +25,13 @@ using namespace std;
 struct Disk {
     char diskIp[MAX_IPLENGTH];
     int numFiles;
-    string fileList[MAX_NUMFILES];
+    vector<string> fileList;
 };
 
-int numDisks = 0;
-Disk DiskList[MAX_NUMDISKS];
+vector<Disk> DiskList;
 
-int getDiskIndex(const char *diskIp) {
-    for (int i = 0; i < numDisks; i++) {
-        if (strcmp(DiskList[i].diskIp, diskIp) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-void _upload(const char* userFilename, int socket) {
+void _upload(const char* userFilename, int socket, int partition, char *loginName,
+    vector<int> partitionArray, vector<string> DPAHelper, set<string> userFileHashSet) {
     char username[10], filename[10], tempFilename[20];
     strcpy(tempFilename, userFilename);
     stringstream ss(tempFilename);
@@ -83,7 +75,9 @@ void _upload(const char* userFilename, int socket) {
     fileToUpload.close();
     cout << "Finished uploading file to server." << endl;
 
-    char *userFileHash = md5_hash(userFilename);
+    string userFileHash = md5_hash(userFilename, partition);
+    cout << "Hashed value is " << userFileHash << endl;
+
 }
 
 int main(int argc, char *argv[]) {
@@ -100,22 +94,25 @@ int main(int argc, char *argv[]) {
     }
 
     int partition = atoi(argv[1]);
-    numDisks = argc - 2;
+    int numDisks = argc - 2;
 
     for (int i = 0; i < numDisks; i++) {
-        strcpy(DiskList[i].diskIp, argv[i + 2]);
+        Disk newDisk;
+        strcpy(newDisk.diskIp, argv[i + 2]);
+        DiskList.push_back(newDisk);
     }
 
     char login_name[MAX_LOGIN_NAME];
     getlogin_r(login_name, MAX_LOGIN_NAME);
 
-    int numPartition = (int) pow(2, partition);
-    int partitionArray[numPartition];
-    char DPAHelper[numPartition][MAX_PATHLENGTH];
-    for (int i = 0; i < numPartition; i++) {
-        partitionArray[i] = 0;
-        strcpy(DPAHelper[i], "");
+    map<string, int> diskIndex;
+    for (size_t i = 0; i < DiskList.size(); ++i) {
+        diskIndex[DiskList[i].diskIp] = i;
     }
+
+    int numPartition = (int) pow(2, partition);
+    vector<int> partitionArray(numPartition);
+    vector<string> DPAHelper(numPartition);
 
     for (int pNum = 0; pNum < numPartition; pNum++) {
         for (int i = 0; i < numDisks; i++) {
@@ -126,7 +123,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    
+    set<string> userFileHashSet;
 
     // Open a TCP socket, if successful, returns a descriptor
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -187,8 +184,9 @@ int main(int argc, char *argv[]) {
         }
         cout << "userFilename = " << arg << endl; // Ensure newline to flush output
 
+
         if (strcmp(command, "upload") == 0) {
-            _upload(argc, connfd);
+            _upload(arg, connfd, partition, login_name, partitionArray, DPAHelper, userFileHashSet);
         } else if (strcmp(command, "download") == 0) {
             //_download(arg, sockfd);
         } else if (strcmp(command, "list") == 0) {
