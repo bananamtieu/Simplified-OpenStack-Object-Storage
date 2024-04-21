@@ -1,8 +1,5 @@
 /*
 Chan Nam Tieu
-01/20/2022
-Lab 3: TCP/IP Socket Programming
-Step 1: TCP server that accepts a client connection for file transfer.
  */
 
 #include <stdio.h>
@@ -13,7 +10,9 @@ Step 1: TCP server that accepts a client connection for file transfer.
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include <openssl/evp.h>
+#include <sys/stat.h>
+#include <math.h>
+#include "preprocess.h"
 
 #define MAX_LOGIN_NAME 20
 #define MAX_NUMDISKS 10
@@ -27,17 +26,10 @@ struct disk {
     char fileList[MAX_NUMFILES][MAX_PATHLENGTH];
 };
 
+typedef struct disk disk;
+
 int numDisks = 0;
-struct disk DiskList[MAX_NUMDISKS];
-
-//Declare socket file descriptor.
-int sockfd, connfd, rb, sin_size;
-
-//Declare receiving and sending buffers of size 10 bytes
-char rbuf[10], sbuf[10];
-
-//Declare server address to which to bind for receiving messages and client address to fill in sending address
-struct sockaddr_in servAddr, clienAddr;
+disk DiskList[MAX_NUMDISKS];
 
 int getDiskIndex(char *diskIp) {
     for (int i = 0; i < numDisks; i++) {
@@ -48,86 +40,62 @@ int getDiskIndex(char *diskIp) {
     return -1;
 }
 
-void md5_hash(const char *input, unsigned char *output) {
-    EVP_MD_CTX *mdctx;
-    const EVP_MD *md;
-    unsigned int md_len;
-
-    OpenSSL_add_all_digests();
-    md = EVP_get_digestbyname("md5");
-
-    mdctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(mdctx, md, NULL);
-    EVP_DigestUpdate(mdctx, input, strlen(input));
-    EVP_DigestFinal_ex(mdctx, output, &md_len);
-    EVP_MD_CTX_free(mdctx);
-}
-
-void hex_to_binary(const char *hex_string, char *binary_string) {
-    int i, j;
-    for (i = 0, j = 0; hex_string[i] != '\0'; i++, j += 4) {
-        switch (hex_string[i]) {
-            case '0':
-                strcat(binary_string + j, "0000");
-                break;
-            case '1':
-                strcat(binary_string + j, "0001");
-                break;
-            case '2':
-                strcat(binary_string + j, "0010");
-                break;
-            case '3':
-                strcat(binary_string + j, "0011");
-                break;
-            case '4':
-                strcat(binary_string + j, "0100");
-                break;
-            case '5':
-                strcat(binary_string + j, "0101");
-                break;
-            case '6':
-                strcat(binary_string + j, "0110");
-                break;
-            case '7':
-                strcat(binary_string + j, "0111");
-                break;
-            case '8':
-                strcat(binary_string + j, "1000");
-                break;
-            case '9':
-                strcat(binary_string + j, "1001");
-                break;
-            case 'A':
-            case 'a':
-                strcat(binary_string + j, "1010");
-                break;
-            case 'B':
-            case 'b':
-                strcat(binary_string + j, "1011");
-                break;
-            case 'C':
-            case 'c':
-                strcat(binary_string + j, "1100");
-                break;
-            case 'D':
-            case 'd':
-                strcat(binary_string + j, "1101");
-                break;
-            case 'E':
-            case 'e':
-                strcat(binary_string + j, "1110");
-                break;
-            case 'F':
-            case 'f':
-                strcat(binary_string + j, "1111");
-                break;
-            default:
-                printf("Invalid hexadecimal digit '%c'\n", hex_string[i]);
-                return;
+void _upload(char* userFilename, int socket) { //, int partition, disk *DiskList, char d, char *partitionArray, char *userFileHashSet) {
+    char username[10], filename[10], tempFilename[20];
+    strcpy(tempFilename, userFilename);
+    char *token = strtok(tempFilename, "/");
+    if (token != NULL) {
+        strcpy(username, token);
+        token = strtok(NULL, "/");
+        if (token != NULL) {
+            strcpy(filename, token);
+        } else {
+            printf("Error: Missing filename\n");
+            return;
         }
     }
+
+    const char* directory = "/tmp/tempFile/";
+    struct stat sb;
+    if (stat(directory, &sb) != 0) {
+        printf("Temporary directory does not exist. Creating %s\n", directory);
+        char command[100];
+        strcpy(command, "mkdir -p /tmp/tempFile/");
+        if (system(command) != 0) {
+            printf("Error: Failed to create directory.\n");
+            return;
+        }
+    }
+    else {
+        printf("Temporary directory exists.\n");
+    }
+
+    char filePath[50];
+    strcpy(filePath, directory);
+    strcat(filePath, filename);
+
+    FILE *fileToUpload = fopen(filePath, "w");
+    char buff[1024];
+    int bytesRead;
+    printf("File directory is %s\n", filePath);
+    while ((bytesRead = read(socket, buff, 1024)) > 0) {
+        fwrite(buff, sizeof(char), bytesRead, fileToUpload);
+    }
+    fclose(fileToUpload);
+    printf("Finished uploading file to server.\n");
+
+    char *userFileHash = md5_hash(userFilename);
+    
 }
+
 int main(int argc, char *argv[]){
+
+    //Declare socket file descriptor.
+    int sockfd, connfd;
+
+    //Declare server address to which to bind for receiving messages and client address to fill in sending address
+    struct sockaddr_in servAddr, clienAddr;
+
     //Get from the command line, server IP, src and dst files.
     if (argc != 2){
         printf ("Usage: %s <# partition power> <available disks> \n",argv[0]);
@@ -144,25 +112,22 @@ int main(int argc, char *argv[]){
     char login_name[MAX_LOGIN_NAME];
     getlogin_r(login_name, MAX_LOGIN_NAME);
 
-
-    /*
-    const char *input = "ctieu/server.c";
-    
-    unsigned char output[EVP_MAX_MD_SIZE];
-
-    md5_hash(input, output);
-
-    printf("MD5 Hash of '%s' is: ", input);
-    size_t mdSize = EVP_MD_size(EVP_md5());
-
-    char hexRep[mdSize*2], binRep[mdSize*8];
-    for (int i = 0; i < mdSize; i++) {
-        sprintf(hexRep + 2*i, "%02x", output[i]);
+    int numPartition = (int) pow(2, partition);
+    int partitionArray[numPartition];
+    char DPAHelper[numPartition][MAX_PATHLENGTH];
+    for (int i = 0; i < numPartition; i++) {
+        partitionArray[i] = 0;
+        strcpy(DPAHelper[i], "");
     }
-    hex_to_binary(hexRep, binRep);
-    printf("%s\n", binRep);
-    */
 
+    for (int pNum = 0; pNum < numPartition; pNum++) {
+        for (int i = 0; i < numDisks; i++) {
+            if (pNum >= numPartition*i/numDisks && pNum < numPartition*(i + 1)/numDisks) {
+                printf("%d,", pNum);
+                partitionArray[pNum] = i;
+            }
+        }
+    }
 
     //Open a TCP socket, if successful, returns a descriptor
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -183,7 +148,8 @@ int main(int argc, char *argv[]){
 
         //bind IP address and port for server endpoint socket
         if ((bind(sockfd, (struct sockaddr *)&servAddr, sizeof(servAddr))) < 0){
-            perror("Failure to bind server address to the endpoint socket. Finding the next available port.");
+            perror("Failure to bind server address to the endpoint socket");
+            exit(0);
         }
         else {
             bindFail = 0;
@@ -196,17 +162,63 @@ int main(int argc, char *argv[]){
 
 
     //Server accepts the connection and call the connection handler
-    sin_size = sizeof(clienAddr);
-    if ((connfd = accept(sockfd, (struct sockaddr *)&clienAddr, (socklen_t *)&sin_size)) < 0){
-        perror("Failure to accept connection to the client");
-        exit(0);
-    }
+    size_t sin_size = sizeof(clienAddr);
+    char buff[1024];
+    char cmdInput[30], command[10], arg[20];
     while(1) {
+        if ((connfd = accept(sockfd, (struct sockaddr *)&clienAddr, (socklen_t *)&sin_size)) < 0){
+            perror("Failure to accept connection to the client");
+            exit(0);
+        }
+        printf("Connection Established with client IP: %s and Port: %d\n", inet_ntoa(clienAddr.sin_addr), ntohs(clienAddr.sin_port));
+        ssize_t bytes_read = read(connfd, buff, sizeof(buff) - 1); // -1 to leave space for null terminator
+        if (bytes_read < 0) {
+            perror("Error reading from socket");
+            exit(1);
+        }
+        // Ensure cmdInput is properly null-terminated
+        buff[bytes_read] = '\0'; // Null-terminate the buffer
+        strcpy(cmdInput, buff); // Copy buffer to cmdInput
 
+        char *token = strtok(cmdInput, " ");
+        if (token != NULL) {
+            //printf("Token 1: %s\n", token); // Debug print
+            strcpy(command, token);
+            token = strtok(NULL, " ");
+            if (token != NULL) {
+                //printf("Token 2: %s\n", token); // Debug print
+                strcpy(arg, token);
+            }
+        }
+        printf("userFilename = %s\n", arg); // Ensure newline to flush output
+
+
+
+        if (strcmp(command, "upload") == 0) {
+            _upload(arg, connfd);
+        }
+        else if (strcmp(command, "download") == 0) {
+            //_download(arg, sockfd);
+        }
+        else if (strcmp(command, "list") == 0) {
+            //_list(arg, sockfd);
+        }
+        else if (strcmp(command, "delete") == 0) {
+            //_delete(arg, sockfd);
+        }
+        else if (strcmp(command, "add") == 0) {
+            //_add(arg, sockfd);
+        }
+        else if (strcmp(command, "remove") == 0) {
+            //_remove(arg, sockfd);
+        }
+        else {
+            printf("Invalid command!\n");
+        }
     }
 
     //close socket descriptor
     close(sockfd);
-
+    
     return 0;
 }

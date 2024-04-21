@@ -14,11 +14,20 @@ Chan Nam Tieu
 #include <arpa/inet.h>
 
 void _upload(char* userFilename, int socket) {
-    char username[10], filename[10];
-    char *token = strtok(userFilename, "/");
-    strcpy(username, token);
-    token = strtok(userFilename, "/");
-    strcpy(filename, token);
+    char username[10], filename[10], tempFilename[20];
+    strcpy(tempFilename, userFilename);
+    char *token = strtok(tempFilename, "/");
+    if (token != NULL) {
+        strcpy(username, token);
+        token = strtok(NULL, "/");
+        if (token != NULL) {
+            strcpy(filename, token);
+            //printf("%s and %s\n", username, filename);
+        } else {
+            printf("Error: Missing filename\n");
+            return;
+        }
+    }
 
     FILE *fileToUpload = fopen(filename, "r");
     char buff[1024];
@@ -32,6 +41,7 @@ void _upload(char* userFilename, int socket) {
     else {
         printf("File does not exist: %s\n", filename);
     }
+    printf("Finished uploading file %s\n", filename);
     read(socket, buff, 1024);
     printf("Server's message: %s\n", buff);
 }
@@ -44,11 +54,21 @@ void _download(char* userFilename, int socket) {
         printf("%s\n", buff);
     }
 
-    char username[10], filename[10];
-    char *token = strtok(userFilename, "/");
-    strcpy(username, token);
-    token = strtok(userFilename, "/");
-    strcpy(filename, token);
+    
+    char username[10], filename[10], tempFilename[20];
+    strcpy(tempFilename, userFilename);
+    char *token = strtok(tempFilename, "/");
+    if (token != NULL) {
+        strcpy(username, token);
+        token = strtok(NULL, "/");
+        if (token != NULL) {
+            strcpy(filename, token);
+            //printf("%s and %s\n", username, filename);
+        } else {
+            printf("Error: Missing filename\n");
+            return;
+        }
+    }
 
     FILE *fileToDownload = fopen(filename, "w");
     if (strcmp(filename, "q") != 0) {
@@ -62,11 +82,20 @@ void _download(char* userFilename, int socket) {
 }
 
 void _list(char* userFilename, int socket) {
-    char username[10], filename[10];
-    char *token = strtok(userFilename, "/");
-    strcpy(username, token);
-    token = strtok(userFilename, "/");
-    strcpy(filename, token);
+    char username[10], filename[10], tempFilename[20];
+    strcpy(tempFilename, userFilename);
+    char *token = strtok(tempFilename, "/");
+    if (token != NULL) {
+        strcpy(username, token);
+        token = strtok(NULL, "/");
+        if (token != NULL) {
+            strcpy(filename, token);
+            //printf("%s and %s\n", username, filename);
+        } else {
+            printf("Error: Missing filename\n");
+            return;
+        }
+    }
 
     FILE *outputFile = fopen("output.txt", "w");
     char buff[1024];
@@ -103,6 +132,8 @@ void _remove(char* userFilename, int socket) {
 
 int main(int argc, char *argv[]){
     //Get server IP and port number from command line
+    struct sockaddr_in serv_addr;
+
     if (argc != 3){
 		printf ("Usage: %s <ip of server> <port #>\n",argv[0]);
 		exit(0);
@@ -111,61 +142,62 @@ int main(int argc, char *argv[]){
     int sockfd;
     char input[30], command[10], arg[20];
 
-    //Declare server address to accept
-    struct sockaddr_in servAddr;
-
-   //Declare host
-    struct hostent *host;
-
-    //get hostname
-    host = (struct hostent *)gethostbyname(argv[1]);
-
-    //Open a socket, if successful, returns
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Failure to setup an endpoint socket");
-        return 0;
+    // Create socket -- IPv4 and TCP
+    if ((sockfd = socket (AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        printf ("Error: Could not create socket! \n");
+        return 1;
     }
-
-    //Set the server address to send using socket addressing structure
-    servAddr.sin_family = AF_INET;
-    servAddr.sin_port = htons(atoi(argv[2]));
-    servAddr.sin_addr = *((struct in_addr *)host->h_addr);
-
-    //Connect to the server
-    if (connect(sockfd, (struct sockaddr *)&servAddr, sizeof(struct sockaddr)) < 0){
-        perror("Failure to connect to the server");
-        exit(1);
+    
+    serv_addr.sin_family = AF_INET;  // Specify IPv4 address
+    serv_addr.sin_port = htons (atoi (argv[2])); // host to network address short
+    
+    // Convert IP address from text format to binary
+    if (inet_pton (AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
+    {
+        printf ("Could not convert IP address from text format to binary!\n");
+        return 1;
+    }
+    
+    // Connect to server
+    if (connect (sockfd, (struct sockaddr *)&serv_addr, sizeof (serv_addr)) < 0)
+    {
+        printf ("Error: Connect failed! \n");
+        return 1;
     }
 
     // Prompt user to enter command
     printf("Please enter a command: ");
-    scanf("%s", input);
-    printf("%s", input);
+    fgets(input, sizeof(input), stdin);
+    input[strcspn(input, "\n")] = 0;
 
-    write(sockfd, input, sizeof(input));
+    write(sockfd, input, strlen(input) + 1);
 
     char *token = strtok(input, " ");
     strcpy(command, token);
-    token = strtok(input, " ");
+    token = strtok(NULL, " ");
     strcpy(arg, token);
 
     if (strcmp(command, "upload") == 0) {
         _upload(arg, sockfd);
     }
-    if (strcmp(command, "download") == 0) {
+    else if (strcmp(command, "download") == 0) {
         _download(arg, sockfd);
     }
-    if (strcmp(command, "list") == 0) {
+    else if (strcmp(command, "list") == 0) {
         _list(arg, sockfd);
     }
-    if (strcmp(command, "delete") == 0) {
+    else if (strcmp(command, "delete") == 0) {
         _delete(arg, sockfd);
     }
-    if (strcmp(command, "add") == 0) {
+    else if (strcmp(command, "add") == 0) {
         _add(arg, sockfd);
     }
-    if (strcmp(command, "remove") == 0) {
+    else if (strcmp(command, "remove") == 0) {
         _remove(arg, sockfd);
+    }
+    else {
+        printf("Invalid command!\n");
     }
 
     //Close socket descriptor
