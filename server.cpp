@@ -29,6 +29,59 @@ struct Disk {
 
 vector<Disk> DiskList;
 
+void RestoreFiles(const char *LoginName, const char *username, const char *filename, Disk BackupDisk, Disk MainDisk) {
+    // Restore from BackupDisk
+    // Download
+    const string directory = "/tmp/filetmp/";
+    if (mkdir(directory.c_str(), 0777) != 0 && errno != EEXIST) {
+        cerr << "Error: Failed to create directory." << endl;
+        return;
+    }
+
+    ofstream commandfile("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    commandfile << "scp -B " << LoginName << "@" << BackupDisk.diskIp << ":/tmp/" << LoginName << "/backupfolder/"
+                << username << "/" << filename << " " << directory << filename << endl;
+    commandfile.close();
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    // Upload
+    commandfile.open("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    commandfile << "scp -B " << directory << filename << " " << LoginName << "@" << MainDisk.diskIp << ":/tmp/"
+                << LoginName << "/" << username << "/" << filename << endl;
+    commandfile.close();
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    // Restore from MainDisk
+    // Download
+    commandfile.open("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    commandfile << "scp -B " << LoginName << "@" << MainDisk.diskIp << ":/tmp/" << LoginName << "/"
+                << username << "/" << filename << " " << directory << filename << endl;
+    commandfile.close();
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    // Upload
+    commandfile.open("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    commandfile << "scp -B " << directory << filename << " " << LoginName << "@" << BackupDisk.diskIp
+                << ":/tmp/" << LoginName << "/backupfolder/" << username << "/" << filename << endl;
+    commandfile.close();
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    // Remove temporary directory
+    rmdir(directory.c_str());
+}
+
 void _upload(const char* userFilename, int socket, int partition, char *login_name,
     vector<int> partitionArray, vector<string> DPAHelper, set<int> userFileHashSet) {
     char username[10], filename[10], tempFilename[20];
@@ -163,7 +216,150 @@ void _download(const char* userFilename, int socket, int partition, char *login_
     else {
         backupDisk = DiskList[0];
     }
-    
+    RestoreFiles(login_name, username, filename, backupDisk, mainDisk);
+
+    const char* directory = "/tmp/tempFile/";
+    struct stat sb;
+    if (stat(directory, &sb) != 0) {
+        cout << "Temporary directory does not exist. Creating " << directory << endl;
+        char command[100];
+        strcpy(command, "mkdir -p /tmp/tempFile/");
+        if (system(command) != 0) {
+            cout << "Error: Failed to create directory." << endl;
+            return;
+        }
+    }
+    // Create a script commandfile.sh to run command: CopyFile
+    ofstream commandfile("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    commandfile << "scp -B " << login_name << "@" << mainDisk.diskIp << ":/tmp/" << login_name << "/" << username << "/"
+                << filename << " " << directory << filename << endl;
+    commandfile.close();
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    char filePath[MAX_PATHLENGTH];
+    strcpy(filePath, directory);
+    strcat(filePath, filename);
+
+    ifstream fileToDownload(filePath, ios::binary);
+    while (fileToDownload.read(buff, sizeof(buff))) {
+        write(socket, buff, sizeof(buff));
+    }
+    fileToDownload.close();
+
+    // Clean up
+    remove(filePath);
+    rmdir(directory);
+    cout << string(username) << "/" << string(filename) << " was downloaded from " << mainDisk.diskIp << endl;
+
+}
+
+void _list(const char* username, int socket, int partition, char *login_name,
+    vector<int> partitionArray, vector<string> DPAHelper, set<int> userFileHashSet) {
+    ofstream FileAll("FileAll.sh");
+    if (!FileAll.is_open()) {
+        cerr << "Error: Unable to open FileAll.sh" << endl;
+        return;
+    }
+    FileAll.close();
+    system("chmod 700 FileAll.sh");
+
+    const char* directory = "/tmp/filetmp/";
+    struct stat sb;
+    if (stat(directory, &sb) != 0) {
+        cout << "Temporary directory does not exist. Creating " << directory << endl;
+        char command[100];
+        strcpy(command, "mkdir -p /tmp/tempFile/");
+        if (system(command) != 0) {
+            cout << "Error: Failed to create directory." << endl;
+            return;
+        }
+    }
+
+    for (Disk _mainDisk : DiskList) {
+        string diskIp = _mainDisk.diskIp;
+        vector<string> filelist(_mainDisk.fileList);
+
+        for (string LoginUserFile : filelist) {
+            if (LoginUserFile.find(username) != string::npos && LoginUserFile.find("backupfolder") == string::npos) {
+                string _filename = LoginUserFile.substr(LoginUserFile.find_last_of('/') + 1);
+                char filename[10];
+                strcpy(filename, _filename.c_str());
+                string userFilename = LoginUserFile.substr(LoginUserFile.find_first_of('/') + 1);
+                string userFileHash = md5_hash(userFilename, partition);
+                int hashValue = stoi(userFileHash, nullptr, 2);
+
+                Disk backupDisk;
+                if (partitionArray[hashValue] != DiskList.size() - 1) {
+                    backupDisk = DiskList[partitionArray[hashValue] + 1];
+                }
+                else {
+                    backupDisk = DiskList[0];
+                }
+
+                RestoreFiles(login_name, username, filename, backupDisk, _mainDisk);
+
+                string GetDiskList = "ssh -o \"StrictHostKeyChecking no\" " + string(login_name) + "@" + _mainDisk.diskIp + " \"cd /tmp/" + string(login_name) + "/" + string(username) + " ; " + "ls -lrt >> ~/output" + _mainDisk.diskIp + ".txt\"";
+                string CopyFile = "scp -B " + string(login_name) + "@" + _mainDisk.diskIp + ":~/output" + _mainDisk.diskIp + ".txt " + "/tmp/filetmp/" + "output" + _mainDisk.diskIp + ".txt";
+                string RemoveOutput = "ssh -o \"StrictHostKeyChecking no\" " + string(login_name) + "@" + _mainDisk.diskIp + " \"rm ~/output" + _mainDisk.diskIp + ".txt\"";
+                
+                ofstream FileAll("FileAll.sh", ios_base::app);
+                if (!FileAll.is_open()) {
+                    cerr << "Error: Unable to open FileAll.sh for appending" << endl;
+                    return;
+                }
+                FileAll << GetDiskList << '\n';
+                FileAll << CopyFile << '\n';
+                FileAll << RemoveOutput << '\n';
+                FileAll.close();
+            }
+        }
+    }
+
+    system("sh FileAll.sh");
+    remove("FileAll.sh");
+
+    string outputDirectory = string(directory) + "output.txt";
+    ofstream outfile(outputDirectory);
+    if (!outfile.is_open()) {
+        cerr << "Error: Unable to open output file for writing" << endl;
+        return;
+    }
+
+    for (const auto& entry : filesystem::directory_iterator(directory)) {
+        ifstream infile(entry.path());
+        if (infile.is_open()) {
+            outfile << infile.rdbuf();
+            infile.close();
+            remove(entry.path().c_str());
+        }
+    }
+    outfile.close();
+
+    ifstream f(outputDirectory, ios::binary);
+    if (!f.is_open()) {
+        cerr << "Error: Unable to open output.txt for reading" << endl;
+        return;
+    }
+
+    f.seekg(0, ios::end);
+    int filesize = f.tellg();
+    f.seekg(0, ios::beg);
+
+    char buffer[1024];
+    while (f.read(buffer, 1024)) {
+        write(socket, buffer, sizeof(buffer));
+    }
+
+    f.close();
+
+    remove((string(directory) + "output.txt").c_str());
+    remove((string(directory) + "output.txt").c_str());
+    remove(directory);
+
+    cout << "Listing is completed." << endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -267,7 +463,7 @@ int main(int argc, char *argv[]) {
                 strcpy(arg, token.c_str());
             }
         }
-        cout << "userFilename = " << arg << endl; // Ensure newline to flush output
+        // cout << "userFilename = " << arg << endl; // Ensure newline to flush output
 
 
         if (strcmp(command, "upload") == 0) {
@@ -275,7 +471,7 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(command, "download") == 0) {
             _download(arg, connfd, partition, login_name, partitionArray, DPAHelper, userFileHashSet);
         } else if (strcmp(command, "list") == 0) {
-            //_list(arg, sockfd);
+            _list(arg, connfd, partition, login_name, partitionArray, DPAHelper, userFileHashSet);
         } else if (strcmp(command, "delete") == 0) {
             //_delete(arg, sockfd);
         } else if (strcmp(command, "add") == 0) {

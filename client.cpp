@@ -54,6 +54,17 @@ void _download(const string& userFilename, int socket) {
         }
         fileToDownload.close();
     }
+
+    ifstream downloadedFile(filename, ios::binary);
+    if (filename != "q") {
+        if (downloadedFile.is_open()) {
+            while (downloadedFile.read(buff, sizeof(buff))) {
+                cout << buff;
+            }
+        }
+        cout << endl;
+        downloadedFile.close();
+    }
 }
 
 void _list(const string& userFilename, int socket) {

@@ -184,25 +184,4 @@ int main(int argc, char *argv[]){
     else if (strcmp(command, "download") == 0) {
         _download(arg, sockfd);
     }
-    else if (strcmp(command, "list") == 0) {
-        _list(arg, sockfd);
-    }
-    else if (strcmp(command, "delete") == 0) {
-        _delete(arg, sockfd);
-    }
-    else if (strcmp(command, "add") == 0) {
-        _add(arg, sockfd);
-    }
-    else if (strcmp(command, "remove") == 0) {
-        _remove(arg, sockfd);
-    }
-    else {
-        printf("Invalid command!\n");
-    }
-
-    //Close socket descriptor
-    close(sockfd);
-
-    return 0;
-}
-
+    else if (strcmp(
