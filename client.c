@@ -131,45 +131,41 @@ int main(int argc, char *argv[]){
     servAddr.sin_port = htons(atoi(argv[2]));
     servAddr.sin_addr = *((struct in_addr *)host->h_addr);
 
-    while (1) {
+    //Connect to the server
+    if (connect(sockfd, (struct sockaddr *)&servAddr, sizeof(struct sockaddr)) < 0){
+        perror("Failure to connect to the server");
+        exit(1);
+    }
 
-        //Connect to the server
-        if (connect(sockfd, (struct sockaddr *)&servAddr, sizeof(struct sockaddr)) < 0){
-            perror("Failure to connect to the server");
-            exit(1);
-        }
+    // Prompt user to enter command
+    printf("Please enter a command: ");
+    scanf("%s", input);
+    printf("%s", input);
 
-        // Prompt user to enter command
-        printf("Please enter a command: ");
-        scanf("%s", input);
-        printf("%s", input);
+    write(sockfd, input, sizeof(input));
 
-        write(sockfd, input, sizeof(input));
+    char *token = strtok(input, " ");
+    strcpy(command, token);
+    token = strtok(input, " ");
+    strcpy(arg, token);
 
-        char *token = strtok(input, " ");
-        strcpy(command, token);
-        token = strtok(input, " ");
-        strcpy(arg, token);
-
-        if (strcmp(command, "upload") == 0) {
-            _upload(arg, sockfd);
-        }
-        if (strcmp(command, "download") == 0) {
-            _download(arg, sockfd);
-        }
-        if (strcmp(command, "list") == 0) {
-            _list(arg, sockfd);
-        }
-        if (strcmp(command, "delete") == 0) {
-            _delete(arg, sockfd);
-        }
-        if (strcmp(command, "add") == 0) {
-            _add(arg, sockfd);
-        }
-        if (strcmp(command, "remove") == 0) {
-            _remove(arg, sockfd);
-        }
-
+    if (strcmp(command, "upload") == 0) {
+        _upload(arg, sockfd);
+    }
+    if (strcmp(command, "download") == 0) {
+        _download(arg, sockfd);
+    }
+    if (strcmp(command, "list") == 0) {
+        _list(arg, sockfd);
+    }
+    if (strcmp(command, "delete") == 0) {
+        _delete(arg, sockfd);
+    }
+    if (strcmp(command, "add") == 0) {
+        _add(arg, sockfd);
+    }
+    if (strcmp(command, "remove") == 0) {
+        _remove(arg, sockfd);
     }
 
     //Close socket descriptor
