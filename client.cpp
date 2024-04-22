@@ -17,20 +17,24 @@ void _upload(const string& userFilename, int socket) {
     stringstream tempFilename(userFilename);
     getline(tempFilename, username, '/');
     getline(tempFilename, filename, '/');
-    
+
     char buff[1024];
     ifstream fileToUpload(filename, ios::binary);
     if (fileToUpload.is_open()) {
-        while (fileToUpload.read(buff, sizeof(buff)))
-            write(socket, buff, sizeof(buff));
+        while (fileToUpload.read(buff, sizeof(buff))) {
+            write(socket, buff, sizeof(buff)); // send 2
+        }
+        write(socket, "EOF", 4);
         fileToUpload.close();
     }
     else {
         cout << "File does not exist: " << filename << endl;
         return;
     }
+
     cout << "Finished uploading file " << filename << endl;
     read(socket, buff, sizeof(buff));
+
     cout << "Server's message: " << buff << endl;
 }
 
@@ -50,7 +54,11 @@ void _download(const string& userFilename, int socket) {
     if (filename != "q") {
         int bytesRead;
         while ((bytesRead = read(socket, buff, sizeof(buff))) > 0) {
+            if (bytesRead == 4 && strcmp(buff, "EOF") == 0) {
+                break; // End of file transmission
+            }
             fileToDownload.write(buff, bytesRead);
+            cout << buff;
         }
         fileToDownload.close();
     }
@@ -135,7 +143,7 @@ int main(int argc, char *argv[]){
     cout << "Please enter a command: ";
     getline(cin, input);
 
-    write(sockfd, input.c_str(), input.size() + 1);
+    write(sockfd, input.c_str(), input.size() + 1); // send 1
 
     stringstream ss(input);
     getline(ss, command, ' ');
