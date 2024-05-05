@@ -18,7 +18,7 @@
 
 #define MAX_LOGIN_NAME 20
 #define MAX_IPLENGTH 20
-#define MAX_PATHLENGTH 50
+#define MAX_PATHLENGTH 80
 
 using namespace std;
 
@@ -94,7 +94,7 @@ void RestoreFiles(const char *LoginName, const char *username, const char *filen
 
 void _upload(const char* userFilename, int socket, int partition, char *login_name,
     vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
-    char username[10], filename[10], tempFilename[20];
+    char username[10], filename[20], tempFilename[30];
     strcpy(tempFilename, userFilename);
     stringstream ss(tempFilename);
     string token;
@@ -189,7 +189,7 @@ void _upload(const char* userFilename, int socket, int partition, char *login_na
 
 void _download(const char* userFilename, int socket, int partition, char *login_name,
     vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
-    char username[10], filename[10], tempFilename[20];
+    char username[10], filename[20], tempFilename[30];
     strcpy(tempFilename, userFilename);
     stringstream ss(tempFilename);
     string token;
@@ -295,7 +295,7 @@ void _list(const char* username, int socket, int partition, char *login_name,
         for (string LoginUserFile : filelist) {
             if (LoginUserFile.find(username) != string::npos && LoginUserFile.find("backupfolder") == string::npos) {
                 string _filename = LoginUserFile.substr(LoginUserFile.find_last_of('/') + 1);
-                char filename[10];
+                char filename[20];
                 strcpy(filename, _filename.c_str());
                 string userFilename = LoginUserFile.substr(LoginUserFile.find_first_of('/') + 1);
                 string userFileHash = md5_hash(userFilename, partition);
@@ -387,7 +387,7 @@ void _delete(const char* userFilename, int socket, int partition, char *login_na
         write(socket, buff, sizeof(buff));
     }
     // Split UserFileName into username and filename
-    char username[10], filename[10], tempFilename[20];
+    char username[10], filename[20], tempFilename[30];
     strcpy(tempFilename, userFilename);
     stringstream ss(tempFilename);
     string token;
@@ -695,7 +695,7 @@ int main(int argc, char *argv[]) {
     // Server accepts the connection and call the connection handler
     size_t sin_size = sizeof(clienAddr);
     char buff[1024];
-    char cmdInput[30], command[10], arg[20];
+    char cmdInput[40], command[10], arg[30];
     while (true) {
         if ((connfd = accept(sockfd, (struct sockaddr *)&clienAddr, (socklen_t *)&sin_size)) < 0) {
             perror("Failure to accept connection to the client");
