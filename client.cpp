@@ -41,8 +41,9 @@ void _upload(const string& userFilename, int socket) {
 void _download(const string& userFilename, int socket) {
     char buff[1024];
     read(socket, buff, sizeof(buff));
-    if (strcmp(buff, "The file is not exist.") == 0) {
+    if (strcmp(buff, "File not found!") == 0) {
         cout << buff << endl;
+        return;
     }
 
     string username, filename;
@@ -91,14 +92,15 @@ void _list(const string& userFilename, int socket) {
     outputFile.close();
     */
     read(socket, buff, sizeof(buff));
-    cout << "Server's message: " << buff << endl;
+    cout << "Server's message: " << string(buff) << endl;
 }
 
 void _delete(const string& userFilename, int socket) {
     char buff[1024];
     read(socket, buff, sizeof(buff));
-    if (strcmp(buff, "The file is not exist.") == 0) {
+    if (strcmp(buff, "File not found!") == 0) {
         cout << buff << endl;
+        return;
     }
 
     read(socket, buff, sizeof(buff));
@@ -112,6 +114,12 @@ void _add(const string& userFilename, int socket) {
 }
 
 void _remove(const string& userFilename, int socket) {
+    char buff[1024];
+    read(socket, buff, sizeof(buff));
+    cout << "Server's message: " << buff << endl;
+}
+
+void _clean(int socket) {
     char buff[1024];
     read(socket, buff, sizeof(buff));
     cout << "Server's message: " << buff << endl;
@@ -170,6 +178,9 @@ int main(int argc, char *argv[]){
     }
     else if (command == "remove") {
         _remove(arg, sockfd);
+    }
+    else if (command == "clean") {
+        _clean(sockfd);
     }
     else {
         printf("Invalid command!\n");

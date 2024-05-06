@@ -92,6 +92,109 @@ void RestoreFiles(const char *LoginName, const char *username, const char *filen
     rmdir(directory.c_str());
 }
 
+void DownloadUpload(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dMainDisk, int uMainDisk) {
+    // Download
+    string directory = "/tmp/tempFile/";
+    if (system(("mkdir -p " + directory).c_str()) != 0) {
+        cerr << "Error creating directory\n";
+        return;
+    }
+
+    ofstream commandfile("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    string CopyFile = "scp -B " + LoginName + "@" + DiskList[dMainDisk].diskIp +":/tmp/" + LoginName + "/" + username + "/" + filename + " " + directory + filename;
+    commandfile << CopyFile << endl;
+    commandfile.close();
+
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    // Upload
+    ofstream commandfileUpload("commandfile.sh");
+    commandfileUpload << "#!/bin/bash" << endl;
+
+    string folderCreate = "ssh -o StrictHostKeyChecking=no " + LoginName+"@" + DiskList[uMainDisk].diskIp + " \"mkdir -p /tmp/" + LoginName + "/" + username + "\"";
+    string CopyFileUpload = "scp -B " + directory + filename + " " + LoginName + "@" + DiskList[uMainDisk].diskIp + ":/tmp/" + LoginName + "/" + username + "/" + filename;
+    commandfileUpload << folderCreate << endl;
+    commandfileUpload << CopyFileUpload << endl;
+    commandfileUpload.close();
+
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    remove((directory + filename).c_str());
+    remove(directory.c_str());
+}
+
+void Delete(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dMainDisk, int uMainDisk) {
+    // Delete
+    ofstream commandfile("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+
+    string DeleteFile = "ssh -o StrictHostKeyChecking=no "+ LoginName + "@" + DiskList[dMainDisk].diskIp +" \"cd /tmp/" + LoginName + "/" + username + " ; " + "rm " + filename + "\"";
+    commandfile << DeleteFile << endl;
+    commandfile.close();
+
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+}
+
+void DownloadUploadForBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dBackupDisk, int uBackupDisk) {
+    // Download
+    string directory = "/tmp/tempFile/";
+    if (system(("mkdir -p " + directory).c_str()) != 0) {
+        cerr << "Error creating directory\n";
+        return;
+    }
+
+    ofstream commandfile("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    
+    string CopyFile = "scp -B " + LoginName + "@" + DiskList[dBackupDisk].diskIp + ":/tmp/" + LoginName + "/backupfolder/" + username + "/" + filename + " " + directory + filename;
+    commandfile << CopyFile << endl;
+    commandfile.close();
+
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    // Upload
+    ofstream commandfileUpload("commandfile.sh");
+    commandfileUpload << "#!/bin/bash" << endl;
+    
+    string folderCreateB = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[uBackupDisk].diskIp + " \"mkdir -p /tmp/" + LoginName + "/backupfolder" + "\"";
+    string folderCreate = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[uBackupDisk].diskIp +" \"mkdir -p /tmp/" + LoginName + "/backupfolder/" + username + "\"";
+    string CopyFileUpload = "scp -B " + directory + filename + " " + LoginName + "@" + DiskList[uBackupDisk].diskIp + ":/tmp/" + LoginName + "/backupfolder/" + username + "/" + filename;
+    commandfileUpload << folderCreateB << endl;
+    commandfileUpload << folderCreate << endl;
+    commandfileUpload << CopyFileUpload << endl;
+    commandfileUpload.close();
+
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+
+    remove((directory + filename).c_str());
+    remove(directory.c_str());
+}
+
+void DeleteForBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dBackupDisk, int uBackupDisk) {
+    // Delete
+    ofstream commandfile("commandfile.sh");
+    commandfile << "#!/bin/bash" << endl;
+    
+    string DeleteFile = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[dBackupDisk].diskIp + " \"cd /tmp/" + LoginName + "/backupfolder/" + username + " ; " + "rm " + filename + "\"";
+    commandfile << DeleteFile << endl;
+    commandfile.close();
+
+    chmod("commandfile.sh", 0700);
+    system("./commandfile.sh");
+    remove("commandfile.sh");
+}
+
 void _upload(const char* userFilename, int socket, int partition, char *login_name,
     vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
     char username[10], filename[20], tempFilename[30];
@@ -210,6 +313,7 @@ void _download(const char* userFilename, int socket, int partition, char *login_
     if (dpaIt == DPAHelper.end()) {
         strcpy(buff, "File not found!");
         write(socket, buff, sizeof(buff));
+        return;
     }
     else {
         strcpy(buff, "Start downloading...");
@@ -309,7 +413,7 @@ void _list(const char* username, int socket, int partition, char *login_name,
                     backupDisk = 0;
                 }
 
-                // RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
+                RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
 
                 string GetDiskList = "ssh -o \"StrictHostKeyChecking=no\" " + string(login_name) + "@" + DiskList[mainDisk].diskIp + " \"cd /tmp/" + string(login_name) + "/" + string(username) + " ; " + "ls -lrt >> ~/output" + DiskList[mainDisk].diskIp + ".txt\"";
                 string CopyFile = "scp -B " + string(login_name) + "@" + DiskList[mainDisk].diskIp + ":~/output" + DiskList[mainDisk].diskIp + ".txt " + string(directory) + "output" + DiskList[mainDisk].diskIp + ".txt";
@@ -375,7 +479,7 @@ void _list(const char* username, int socket, int partition, char *login_name,
     //remove(outputDirectory.c_str());
     remove(directory);
 
-    string completedMessage = "Listing is completed.";
+    string completedMessage = "Listing was completed and saved to file list_" + string(username) + "_files.txt";
     cout << completedMessage << endl;
     write(socket, completedMessage.c_str(), completedMessage.length());
 }
@@ -591,21 +695,21 @@ void _remove(const char *oldDiskIp, int socket, int partition, char *login_name,
         if (oldPartitionArray[h] == oldDiskIndex && userFileHashSet.count(h)) {
             string username = DPAHelper[h].substr(0, DPAHelper[h].find("/"));
             string filename = DPAHelper[h].substr(DPAHelper[h].find("/") + 1);
-            Disk DownloadMainDisk = oldDisk;
-            Disk UploadMainDisk = DiskList[partitionArray[h]];
-            Disk DownloadBackupDisk = (partitionArray[h] != (l - 1)) ?
+            Disk downloadMainDisk = oldDisk;
+            Disk uploadMainDisk = DiskList[partitionArray[h]];
+            Disk downloadBackupDisk = (partitionArray[h] != (l - 1)) ?
                 DiskList[oldDiskIndex + 1] : DiskList[0];
-            Disk UploadBackupDisk = (partitionArray[h] != (oldDiskIndex - 1)) ?
+            Disk uploadBackupDisk = (partitionArray[h] != (oldDiskIndex - 1)) ?
                 DiskList[partitionArray[h] + 1] : DiskList[partitionArray[h] + 2];
 
             char filePath[MAX_PATHLENGTH];
-            if (strcmp(UploadMainDisk.diskIp, DownloadMainDisk.diskIp) != 0) {
+            if (strcmp(uploadMainDisk.diskIp, downloadMainDisk.diskIp) != 0) {
                 sprintf(filePath, "%s/%s/%s", login_name, username, filename);
-                UploadMainDisk.fileList.push_back(filePath);
+                uploadMainDisk.fileList.push_back(filePath);
             }
-            if (strcmp(UploadBackupDisk.diskIp, DownloadBackupDisk.diskIp) != 0) {
+            if (strcmp(uploadBackupDisk.diskIp, downloadBackupDisk.diskIp) != 0) {
                 sprintf(filePath, "%s/backupFolder/%s/%s", login_name, username, filename);
-                UploadBackupDisk.fileList.push_back(filePath);
+                uploadBackupDisk.fileList.push_back(filePath);
             }
         }
     }
@@ -624,6 +728,25 @@ void _remove(const char *oldDiskIp, int socket, int partition, char *login_name,
 
     return;
 }
+
+void _clean(int socket, int partition, char *login_name,
+    vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
+        partitionArray.clear();
+        for (int _disk = 0; _disk < DiskList.size(); _disk++) {
+            DiskList[_disk].fileList.clear();
+            string clearCommand = "ssh -o \"StrictHostKeyChecking=no\" " + string(login_name) + "@" + string(DiskList[_disk].diskIp)
+                + " \"rm -rf /tmp/" + string(login_name) + "\"";
+            system(clearCommand.c_str());
+        }
+        for (int hashSet : userFileHashSet) {
+            DPAHelper[hashSet] = "";
+        }
+        userFileHashSet.clear();
+        diskIndex.clear();
+        char buff[1024];
+        sprintf(buff, "All disks have been cleared.");
+        write(socket, buff, 1024);
+    }
 
 int main(int argc, char *argv[]) {
     // Declare socket file descriptor.
@@ -733,19 +856,20 @@ int main(int argc, char *argv[]) {
 
         if (strcmp(command, "upload") == 0) {
             _upload(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
-            printDiskList(DiskList);
         } else if (strcmp(command, "download") == 0) {
             _download(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
-            printDiskList(DiskList);
         } else if (strcmp(command, "list") == 0) {
-            printDiskList(DiskList);
             _list(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
         } else if (strcmp(command, "delete") == 0) {
             _delete(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
         } else if (strcmp(command, "add") == 0) {
             _add(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
+            printDiskList(DiskList);
         } else if (strcmp(command, "remove") == 0) {
             _remove(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
+            printDiskList(DiskList);
+        } else if (strcmp(command, "clean") == 0) {
+            _clean(connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
         } else {
             cout << "Invalid command!" << endl;
         }
