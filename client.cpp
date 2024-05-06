@@ -50,7 +50,7 @@ void _download(const string& userFilename, int socket) {
     getline(tempFilename, username, '/');
     getline(tempFilename, filename, '/');
     
-    ofstream fileToDownload(filename, ios::binary);
+    ofstream fileToDownload("OpenStack_" + filename, ios::binary);
     if (filename != "q") {
         int bytesRead;
         while ((bytesRead = read(socket, buff, sizeof(buff))) > 0) {
@@ -81,13 +81,17 @@ void _list(const string& userFilename, int socket) {
     getline(tempFilename, username, '/');
     getline(tempFilename, filename, '/');
     
-    ofstream outputFile("output.txt", ios::binary);
+    //ofstream outputFile("output.txt", ios::binary);
     char buff[1024];
-    int bytesRead;
+    //int bytesRead;
+    /*
     while ((bytesRead = read(socket, buff, sizeof(buff))) > 0) {
         outputFile.write(buff, bytesRead);
     }
     outputFile.close();
+    */
+    read(socket, buff, sizeof(buff));
+    cout << "Server's message: " << buff << endl;
 }
 
 void _delete(const string& userFilename, int socket) {

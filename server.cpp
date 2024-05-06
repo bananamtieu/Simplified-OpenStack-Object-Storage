@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <cstring>
 #include <cstdlib>
 #include <ctime>
@@ -9,7 +10,6 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sstream>
 #include <set>
 #include <vector>
 #include <map>
@@ -293,7 +293,7 @@ void _list(const char* username, int socket, int partition, char *login_name,
         vector<string> filelist(DiskList[mainDisk].fileList);
 
         for (string LoginUserFile : filelist) {
-            if (LoginUserFile.find(username) != string::npos && LoginUserFile.find("backupfolder") == string::npos) {
+            if (LoginUserFile.find(username) != string::npos && LoginUserFile.find("backupFolder") == string::npos) {
                 string _filename = LoginUserFile.substr(LoginUserFile.find_last_of('/') + 1);
                 char filename[20];
                 strcpy(filename, _filename.c_str());
@@ -309,7 +309,7 @@ void _list(const char* username, int socket, int partition, char *login_name,
                     backupDisk = 0;
                 }
 
-                RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
+                // RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
 
                 string GetDiskList = "ssh -o \"StrictHostKeyChecking=no\" " + string(login_name) + "@" + DiskList[mainDisk].diskIp + " \"cd /tmp/" + string(login_name) + "/" + string(username) + " ; " + "ls -lrt >> ~/output" + DiskList[mainDisk].diskIp + ".txt\"";
                 string CopyFile = "scp -B " + string(login_name) + "@" + DiskList[mainDisk].diskIp + ":~/output" + DiskList[mainDisk].diskIp + ".txt " + string(directory) + "output" + DiskList[mainDisk].diskIp + ".txt";
@@ -331,23 +331,28 @@ void _list(const char* username, int socket, int partition, char *login_name,
     system("sh allFiles.sh");
     remove("allFiles.sh");
 
-    string outputDirectory = string(directory) + "output.txt";
-    ofstream outfile(outputDirectory);
+    // string outputDirectory = string(directory) + "output.txt";
+    ofstream outfile("list_" + string(username) + "_files.txt", ios::binary);
     if (!outfile.is_open()) {
         cerr << "Error: Unable to open output file for writing" << endl;
         return;
     }
 
-    for (const auto& entry : filesystem::directory_iterator(directory)) {
-        ifstream infile(entry.path());
+    for (int mainDisk = 0; mainDisk < DiskList.size(); mainDisk++) {
+        string diskIp = DiskList[mainDisk].diskIp;
+        string entryPath = string(directory) + "output" + diskIp + ".txt";
+
+        ifstream infile(entryPath);
         if (infile.is_open()) {
+            // cout << "Copying contents from " << entryPath << endl;
             outfile << infile.rdbuf();
             infile.close();
-            remove(entry.path().c_str());
+            remove(entryPath.c_str());
         }
     }
     outfile.close();
 
+    /*
     ifstream f(outputDirectory, ios::binary);
     if (!f.is_open()) {
         cerr << "Error: Unable to open output.txt for reading" << endl;
@@ -360,16 +365,19 @@ void _list(const char* username, int socket, int partition, char *login_name,
 
     char buffer[1024];
     while (f.read(buffer, 1024)) {
+        cout << "Sending" << endl;
         write(socket, buffer, sizeof(buffer));
     }
 
     f.close();
+    */
 
-    remove((string(directory) + "output.txt").c_str());
-    remove((string(directory) + "output.txt").c_str());
+    //remove(outputDirectory.c_str());
     remove(directory);
 
-    cout << "Listing is completed." << endl;
+    string completedMessage = "Listing is completed.";
+    cout << completedMessage << endl;
+    write(socket, completedMessage.c_str(), completedMessage.length());
 }
 
 void _delete(const char* userFilename, int socket, int partition, char *login_name,
