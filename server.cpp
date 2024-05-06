@@ -501,7 +501,7 @@ void _remove(const char *oldDiskIp, int socket, int partition, char *login_name,
             }
         }
         for (int k = 0; k < partitionArray.size(); ++k) {
-            if (partitionArray[k] == oldDisk && count < (2 << partition) / l - 1) {
+            if (partitionArray[k] == oldDisk && count < (2 << partition)/(l - 1)) {
                 partitionArray[k] = diskIndex[DiskList[j].diskIp];
                 count++;
             }
