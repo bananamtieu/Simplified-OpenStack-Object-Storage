@@ -2,13 +2,13 @@
 #define STORAGEHELPER_H
 
 #define MAX_LOGIN_NAME 30
-#define MAX_IPLENGTH 20
+#define MAX_DISKNAMELENGTH 20
 #define MAX_PATHLENGTH 80
 
 using namespace std;
 
 struct Disk {
-    char diskIp[MAX_IPLENGTH];
+    char diskIp[MAX_DISKNAMELENGTH];
     vector<string> fileList;
 };
 

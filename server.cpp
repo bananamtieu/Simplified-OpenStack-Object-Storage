@@ -18,6 +18,7 @@
 #include "storageHelper.h"
 
 using namespace std;
+#define BUFF_SIZE 1024
 
 void printDiskList(vector<Disk> DiskList) {
     cout << "Printing Disk List..." << endl;
@@ -63,18 +64,21 @@ void _upload(const char* userFilename, int socket, int partition, char *login_na
     strcat(filePath, filename);
 
     ofstream fileToUpload(filePath, ios::binary);
-    char buff[1024];
-    int bytesRead;
+    char buff[BUFF_SIZE];
     
-    while ((bytesRead = read(socket, buff, 1024)) > 0) { // recv 3
-        if (bytesRead == 4 && strcmp(buff, "EOF") == 0) {
-            break; // End of file transmission
-        }
+    if (!fileToUpload) {
+        cerr << "Error creating file!" << endl;
+        return;
+    }
+
+    int bytesRead;
+    while ((bytesRead = read(socket, buff, BUFF_SIZE)) > 0) {
         fileToUpload.write(buff, bytesRead);
     }
-    fileToUpload.close();
+    
     cout << "Finished uploading file to server." << endl;
-
+    fileToUpload.close();
+    
     string userFileHash = md5_hash(userFilename, partition);
     int hashValue = stoi(userFileHash, nullptr, 2);
     
@@ -114,8 +118,7 @@ void _upload(const char* userFilename, int socket, int partition, char *login_na
     DiskList[backupDisk].fileList.push_back(backupDiskPath);
 
     sprintf(buff, "%s/%s was mainly saved in %s and saved in %s for backup.", username, filename, DiskList[mainDisk].diskIp, DiskList[backupDisk].diskIp);
-    write(socket, buff, 1024);
-    
+    send(socket, buff, BUFF_SIZE, 0);
 }
 
 void _download(const char* userFilename, int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
@@ -573,10 +576,9 @@ void _clean(int socket, int partition, char *login_name, vector<int> &partitionA
 
 int main(int argc, char *argv[]) {
     // Declare socket file descriptor.
-    int sockfd, connfd;
-
-    // Declare server address to which to bind for receiving messages and client address to fill in sending address
-    struct sockaddr_in servAddr, clienAddr;
+    int server_fd, connfd;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
 
     // Get from the command line, server IP, src and dst files.
     if (argc <= 2) {
@@ -616,11 +618,10 @@ int main(int argc, char *argv[]) {
 
     set<int> userFileHashSet;
 
-    // Open a TCP socket, if successful, returns a descriptor
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        perror("cannot create socket");
-        exit(0);
+    // Creating socket file descriptor
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket failed");
+        exit(EXIT_FAILURE);
     }
 
     int bindFail = 1;
@@ -628,35 +629,38 @@ int main(int argc, char *argv[]) {
     srand(time(0));
     while (bindFail) {
         portNumber = rand() % 8400 + 1024;
-        // Setup the server address to bind using socket addressing structure
-        servAddr.sin_family = AF_INET;
-        servAddr.sin_port = htons(portNumber);
-        servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+        // Setting up the server address structure
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = INADDR_ANY;
+        address.sin_port = htons(portNumber);
 
-        // Bind IP address and port for server endpoint socket
-        if ((bind(sockfd, (struct sockaddr *)&servAddr, sizeof(servAddr))) < 0) {
-            perror("Failure to bind server address to the endpoint socket");
-            exit(0);
+        // Binding the socket to the specified IP and port
+        if (bind(server_fd, (struct sockaddr *)&address, addrlen) < 0) {
+            perror("Bind failed");
+            exit(EXIT_FAILURE);
         } else {
             bindFail = 0;
         }
     }
-    
-    // Server listening to the socket endpoint, and can queue 5 client requests
-    cout << "Server listening/waiting for client at port " << portNumber << endl;
-    listen(sockfd, 5);
 
-    // Server accepts the connection and call the connection handler
-    size_t sin_size = sizeof(clienAddr);
-    char buff[1024];
+    // Listening for incoming connections
+    cout << "Server listening/waiting for client at port " << portNumber << endl;
+    if (listen(server_fd, 5) < 0) {
+        perror("Listen failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    char buff[BUFF_SIZE] = {0};
     char cmdInput[40], command[10], arg[30];
-    while (true) {
-        if ((connfd = accept(sockfd, (struct sockaddr *)&clienAddr, (socklen_t *)&sin_size)) < 0) {
-            perror("Failure to accept connection to the client");
-            exit(0);
+    while (true) { 
+        // Accepting a client connection
+        if ((connfd = accept(server_fd, (struct sockaddr *)&address, 
+                        (socklen_t*)&addrlen)) < 0) {
+            perror("Accept failed");
+            exit(EXIT_FAILURE);
         }
-        cout << "Connection Established with client IP: " << inet_ntoa(clienAddr.sin_addr) << " and Port: " << ntohs(clienAddr.sin_port) << endl;
-        ssize_t bytes_read = read(connfd, buff, sizeof(buff) - 1); // recv 1
+        cout << "Connection Established with client IP: " << inet_ntoa(address.sin_addr) << " and Port: " << ntohs(address.sin_port) << endl;
+        ssize_t bytes_read = read(connfd, buff, BUFF_SIZE); // recv 1
          // -1 to leave space for null terminator
         if (bytes_read < 0) {
             perror("Error reading from socket");
@@ -665,6 +669,7 @@ int main(int argc, char *argv[]) {
         // Ensure cmdInput is properly null-terminated
         buff[bytes_read] = '\0'; // Null-terminate the buffer
         strcpy(cmdInput, buff); // Copy buffer to cmdInput
+        cout << "Client's command: " << cmdInput << endl;
 
         stringstream ss(cmdInput);
         string token;
@@ -694,9 +699,10 @@ int main(int argc, char *argv[]) {
         } else {
             cout << "Invalid command!" << endl;
         }
+        close(connfd);
     }
     // Close socket descriptor
-    close(sockfd);
+    close(server_fd);
 
     return 0;
 }

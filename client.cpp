@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 
 using namespace std;
+#define BUFF_SIZE 1024
 
 void _upload(const string& userFilename, int socket) {
     string username, filename;
@@ -18,23 +19,24 @@ void _upload(const string& userFilename, int socket) {
     getline(tempFilename, username, '/');
     getline(tempFilename, filename, '/');
 
-    char buff[1024];
+    char buff[BUFF_SIZE] = {0};
     ifstream fileToUpload(filename, ios::binary);
-    if (fileToUpload.is_open()) {
-        while (fileToUpload.read(buff, sizeof(buff))) {
-            write(socket, buff, sizeof(buff)); // send 2
-        }
-        write(socket, "EOF", 4);
-        fileToUpload.close();
-    }
-    else {
-        cout << "File does not exist: " << filename << endl;
+
+    if (!fileToUpload) {
+        cerr << "Error opening file" << endl;
         return;
     }
 
-    cout << "Finished uploading file " << filename << endl;
-    read(socket, buff, sizeof(buff));
+    while (fileToUpload.read(buff, BUFF_SIZE) || fileToUpload.gcount() > 0) {
+        send(socket, buff, fileToUpload.gcount(), 0);
+    }
+    // Signal that no more data will be sent
+    shutdown(socket, SHUT_WR);
 
+    cout << "Finished uploading file " << filename << endl;
+    fileToUpload.close();
+
+    recv(socket, buff, BUFF_SIZE, 0);
     cout << "Server's message: " << buff << endl;
 }
 
@@ -125,37 +127,40 @@ void _clean(int socket) {
     cout << "Server's message: " << buff << endl;
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char const *argv[]){
     if (argc != 3){
         cerr << "Usage: " << argv[0] << " <ip of server> <port #>" << endl;
         return 1;
     }
 
-    // Create socket
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        cerr << "Error: Could not create socket!" << endl;
-        return 1;
+    int sockfd = 0;
+    struct sockaddr_in serv_addr;
+    // Creating socket file descriptor
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        cerr << "Socket creation error\n";
+        return -1;
     }
 
-    struct sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(atoi(argv[2]));
+
+    // Convert IPv4 and IPv6 addresses from text to binary form
     if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0) {
-        cerr << "Could not convert IP address from text format to binary!" << endl;
-        return 1;
+        cerr << "Invalid address/Address not supported\n";
+        return -1;
     }
     
+    // Connecting to the server
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        cerr << "Error: Connect failed!" << endl;
-        return 1;
+        cerr << "Connection Failed\n";
+        return -1;
     }
 
     string input, command, arg;
     cout << "Please enter a command: ";
     getline(cin, input);
 
-    write(sockfd, input.c_str(), input.size() + 1); // send 1
+    send(sockfd, input.c_str(), input.size() + 1, 0); // send 1
 
     stringstream ss(input);
     getline(ss, command, ' ');
