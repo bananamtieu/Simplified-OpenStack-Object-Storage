@@ -184,10 +184,11 @@ void _download(const char* userFilename, int socket, int partition, char *login_
     strcat(filePath, filename);
 
     ifstream fileToDownload(filePath, ios::binary);
-    while (fileToDownload.read(buff, sizeof(buff))) {
-        write(socket, buff, sizeof(buff));
+    while (fileToDownload.read(buff, BUFF_SIZE) || fileToDownload.gcount() > 0) {
+        send(socket, buff, fileToDownload.gcount(), 0);
     }
-    write(socket, "EOF", 4);
+    // Signal that no more data will be sent
+    shutdown(socket, SHUT_WR);
     fileToDownload.close();
 
     // Clean up

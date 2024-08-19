@@ -56,26 +56,13 @@ void _download(const string& userFilename, int socket) {
     ofstream fileToDownload("OpenStack_" + filename, ios::binary);
     if (filename != "q") {
         int bytesRead;
-        while ((bytesRead = read(socket, buff, sizeof(buff))) > 0) {
-            if (bytesRead == 4 && strcmp(buff, "EOF") == 0) {
-                break; // End of file transmission
-            }
+        while ((bytesRead = read(socket, buff, BUFF_SIZE)) > 0) {
             fileToDownload.write(buff, bytesRead);
-            cout << buff;
         }
         fileToDownload.close();
     }
 
-    ifstream downloadedFile(filename, ios::binary);
-    if (filename != "q") {
-        if (downloadedFile.is_open()) {
-            while (downloadedFile.read(buff, sizeof(buff))) {
-                cout << buff;
-            }
-        }
-        cout << endl;
-        downloadedFile.close();
-    }
+    cout << userFilename << " was downloaded and saved to OpenStack_" << filename << endl;
 }
 
 void _list(const string& userFilename, int socket) {
