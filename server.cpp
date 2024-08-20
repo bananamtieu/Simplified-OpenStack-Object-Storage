@@ -14,6 +14,7 @@
 #include <vector>
 #include <map>
 #include <thread>
+#include <mutex>
 #include <bits/stdc++.h>
 #include "preprocess.h"
 #include "storageHelper.h"
@@ -22,6 +23,7 @@ using namespace std;
 #define BUFF_SIZE 1024
 #define MAX_CLIENTS 5
 
+mutex mtx;
 vector<int> partitionArray;
 vector<Disk> DiskList;
 vector<string> DPAHelper;
@@ -88,6 +90,7 @@ void _upload(const char* userFilename, int socket, int partition, const char *lo
     cout << "Finished uploading file to server." << endl;
     fileToUpload.close();
     
+    mtx.lock(); // Lock the mutex before modifying the shared resource
     string userFileHash = md5_hash(userFilename, partition);
     int hashValue = stoi(userFileHash, nullptr, 2);
     
@@ -96,7 +99,6 @@ void _upload(const char* userFilename, int socket, int partition, const char *lo
 
     userFileHashSet.insert(hashValue);
     DPAHelper[hashValue] = userFilename;
-
 
     ofstream commandfile("commandfile.sh");
     commandfile << "ssh -o StrictHostKeyChecking=no " << login_name << "@" << DiskList[mainDisk].diskIp << " \"mkdir -p /tmp/" << login_name << "/" << username << "\"" << endl;
@@ -123,8 +125,10 @@ void _upload(const char* userFilename, int socket, int partition, const char *lo
     char mainDiskPath[MAX_PATHLENGTH], backupDiskPath[MAX_PATHLENGTH];
     sprintf(mainDiskPath, "%s/%s/%s", login_name, username, filename);
     sprintf(backupDiskPath, "%s/backupFolder/%s/%s", login_name, username, filename);
+
     DiskList[mainDisk].fileList.push_back(mainDiskPath);
     DiskList[backupDisk].fileList.push_back(backupDiskPath);
+    mtx.unlock(); // Unlock the mutex after modifying the shared resource
 
     sprintf(buff, "%s/%s was mainly saved in %s and saved in %s for backup.", username, filename, DiskList[mainDisk].diskIp, DiskList[backupDisk].diskIp);
     send(socket, buff, BUFF_SIZE, 0);
@@ -687,7 +691,7 @@ int main(int argc, char *argv[]) {
     int portNumber;
     srand(time(0));
     while (bindFail) {
-        portNumber = rand() % 8400 + BUFF_SIZE;
+        portNumber = rand() % 8400 + 1024;
         // Setting up the server address structure
         address.sin_family = AF_INET;
         address.sin_addr.s_addr = INADDR_ANY;
