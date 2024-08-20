@@ -41,8 +41,8 @@ void _upload(const string& userFilename, int socket) {
 }
 
 void _download(const string& userFilename, int socket) {
-    char buff[1024];
-    read(socket, buff, sizeof(buff));
+    char buff[BUFF_SIZE];
+    read(socket, buff, BUFF_SIZE);
     if (strcmp(buff, "File not found!") == 0) {
         cout << buff << endl;
         return;
@@ -72,45 +72,45 @@ void _list(const string& userFilename, int socket) {
     getline(tempFilename, filename, '/');
     
     //ofstream outputFile("output.txt", ios::binary);
-    char buff[1024];
+    char buff[BUFF_SIZE];
     //int bytesRead;
     /*
-    while ((bytesRead = read(socket, buff, sizeof(buff))) > 0) {
+    while ((bytesRead = read(socket, buff, BUFF_SIZE)) > 0) {
         outputFile.write(buff, bytesRead);
     }
     outputFile.close();
     */
-    read(socket, buff, sizeof(buff));
+    read(socket, buff, BUFF_SIZE);
     cout << "Server's message: " << string(buff) << endl;
 }
 
 void _delete(const string& userFilename, int socket) {
-    char buff[1024];
-    read(socket, buff, sizeof(buff));
+    char buff[BUFF_SIZE];
+    read(socket, buff, BUFF_SIZE);
     if (strcmp(buff, "File not found!") == 0) {
         cout << buff << endl;
         return;
     }
 
-    read(socket, buff, sizeof(buff));
+    read(socket, buff, BUFF_SIZE);
     cout << buff << endl;
 }
 
 void _add(const string& userFilename, int socket) {
-    char buff[1024];
-    read(socket, buff, sizeof(buff));
+    char buff[BUFF_SIZE];
+    read(socket, buff, BUFF_SIZE);
     cout << "Server's message: " << buff << endl;
 }
 
 void _remove(const string& userFilename, int socket) {
-    char buff[1024];
-    read(socket, buff, sizeof(buff));
+    char buff[BUFF_SIZE];
+    read(socket, buff, BUFF_SIZE);
     cout << "Server's message: " << buff << endl;
 }
 
 void _clean(int socket) {
-    char buff[1024];
-    read(socket, buff, sizeof(buff));
+    char buff[BUFF_SIZE];
+    read(socket, buff, BUFF_SIZE);
     cout << "Server's message: " << buff << endl;
 }
 
