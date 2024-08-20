@@ -125,7 +125,6 @@ void _upload(const char* userFilename, int socket, int partition, const char *lo
     char mainDiskPath[MAX_PATHLENGTH], backupDiskPath[MAX_PATHLENGTH];
     sprintf(mainDiskPath, "%s/%s/%s", login_name, username, filename);
     sprintf(backupDiskPath, "%s/backupFolder/%s/%s", login_name, username, filename);
-
     DiskList[mainDisk].fileList.push_back(mainDiskPath);
     DiskList[backupDisk].fileList.push_back(backupDiskPath);
     mtx.unlock(); // Unlock the mutex after modifying the shared resource
@@ -571,6 +570,7 @@ void _remove(const char *oldDiskIp, int socket, int partition, const char *login
 }
 
 void _clean(int socket, int partition, const char *login_name) {
+    mtx.lock(); // Lock the mutex before modifying the shared resource
     partitionArray.clear();
     for (int _disk = 0; _disk < DiskList.size(); _disk++) {
         DiskList[_disk].fileList.clear();
@@ -584,6 +584,8 @@ void _clean(int socket, int partition, const char *login_name) {
     }
     userFileHashSet.clear();
     diskIndex.clear();
+    mtx.unlock(); // Unlock the mutex after modifying the shared resource
+
     char buff[BUFF_SIZE];
     sprintf(buff, "All disks have been cleared.");
     write(socket, buff, BUFF_SIZE);
