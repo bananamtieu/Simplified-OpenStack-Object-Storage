@@ -13,12 +13,14 @@
 #include <set>
 #include <vector>
 #include <map>
+#include <thread>
 #include <bits/stdc++.h>
 #include "preprocess.h"
 #include "storageHelper.h"
 
 using namespace std;
 #define BUFF_SIZE 1024
+#define MAX_CLIENTS 5
 
 void printDiskList(vector<Disk> DiskList) {
     cout << "Printing Disk List..." << endl;
@@ -31,7 +33,7 @@ void printDiskList(vector<Disk> DiskList) {
     }
 }
 
-void _upload(const char* userFilename, int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
+void _upload(const char* userFilename, int socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
     char username[10], filename[20], tempFilename[30];
     strcpy(tempFilename, userFilename);
     stringstream ss(tempFilename);
@@ -121,7 +123,7 @@ void _upload(const char* userFilename, int socket, int partition, char *login_na
     send(socket, buff, BUFF_SIZE, 0);
 }
 
-void _download(const char* userFilename, int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
+void _download(const char* userFilename, int socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
     char username[10], filename[20], tempFilename[30];
     strcpy(tempFilename, userFilename);
     stringstream ss(tempFilename);
@@ -197,7 +199,7 @@ void _download(const char* userFilename, int socket, int partition, char *login_
     cout << string(username) << "/" << string(filename) << " was downloaded from " << DiskList[mainDisk].diskIp << endl;
 }
 
-void _list(const char* username, int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
+void _list(const char* username, int socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
     ofstream allFiles("allFiles.sh");
     if (!allFiles.is_open()) {
         cerr << "Error: Unable to open allFiles.sh" << endl;
@@ -304,7 +306,7 @@ void _list(const char* username, int socket, int partition, char *login_name, ve
     write(socket, completedMessage.c_str(), completedMessage.length());
 }
 
-void _delete(const char* userFilename, int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
+void _delete(const char* userFilename, int socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet) {
     // Check if the file exists
     char buff[1024];
     vector<string>::iterator dpaIt;
@@ -384,7 +386,7 @@ void _delete(const char* userFilename, int socket, int partition, char *login_na
     write(socket, buff, 1024);
 }
 
-void _add(const char *newDiskIp, int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
+void _add(const char *newDiskIp, int socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
     Disk newDisk;
     strcpy(newDisk.diskIp, newDiskIp);
     DiskList.push_back(newDisk);
@@ -477,7 +479,7 @@ void _add(const char *newDiskIp, int socket, int partition, char *login_name, ve
     return;
 }
 
-void _remove(const char *oldDiskIp, int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
+void _remove(const char *oldDiskIp, int socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
     vector<int> oldPartitionArray(partitionArray);
 
     // Check if OldDisk exists
@@ -557,7 +559,7 @@ void _remove(const char *oldDiskIp, int socket, int partition, char *login_name,
     return;
 }
 
-void _clean(int socket, int partition, char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
+void _clean(int socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
     partitionArray.clear();
     for (int _disk = 0; _disk < DiskList.size(); _disk++) {
         DiskList[_disk].fileList.clear();
@@ -575,11 +577,58 @@ void _clean(int socket, int partition, char *login_name, vector<int> &partitionA
     write(socket, buff, 1024);
 }
 
+void handleClient(int client_socket, int partition, const char *login_name, vector<int> &partitionArray, vector<Disk> &DiskList, vector<string> &DPAHelper, set<int> &userFileHashSet, map<string, int> &diskIndex) {
+    char buff[BUFF_SIZE] = {0};
+    char cmdInput[40], command[10], arg[30];
+
+    ssize_t bytes_read = read(client_socket, buff, BUFF_SIZE); // recv 1
+        // -1 to leave space for null terminator
+    if (bytes_read < 0) {
+        perror("Error reading from socket");
+        exit(1);
+    }
+    // Ensure cmdInput is properly null-terminated
+    buff[bytes_read] = '\0'; // Null-terminate the buffer
+    strcpy(cmdInput, buff); // Copy buffer to cmdInput
+    cout << "Client's command: " << cmdInput << endl;
+
+    stringstream ss(cmdInput);
+    string token;
+    if (getline(ss, token, ' ')) {
+        strcpy(command, token.c_str());
+        if (getline(ss, token, ' ')) {
+            strcpy(arg, token.c_str());
+        }
+    }
+
+    if (strcmp(command, "upload") == 0) {
+        _upload(arg, client_socket, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
+    } else if (strcmp(command, "download") == 0) {
+        _download(arg, client_socket, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
+    } else if (strcmp(command, "list") == 0) {
+        _list(arg, client_socket, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
+    } else if (strcmp(command, "delete") == 0) {
+        _delete(arg, client_socket, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
+    } else if (strcmp(command, "add") == 0) {
+        _add(arg, client_socket, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
+        printDiskList(DiskList);
+    } else if (strcmp(command, "remove") == 0) {
+        _remove(arg, client_socket, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
+        printDiskList(DiskList);
+    } else if (strcmp(command, "clean") == 0) {
+        _clean(client_socket, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
+    } else {
+        cout << "Invalid command!" << endl;
+    }
+    close(client_socket);
+}
+
 int main(int argc, char *argv[]) {
     // Declare socket file descriptor.
     int server_fd, connfd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
+    vector<thread> threads;
 
     // Get from the command line, server IP, src and dst files.
     if (argc <= 2) {
@@ -646,13 +695,12 @@ int main(int argc, char *argv[]) {
 
     // Listening for incoming connections
     cout << "Server listening/waiting for client at port " << portNumber << endl;
-    if (listen(server_fd, 5) < 0) {
+    if (listen(server_fd, MAX_CLIENTS) < 0) {
         perror("Listen failed");
         exit(EXIT_FAILURE);
     }
-    
-    char buff[BUFF_SIZE] = {0};
-    char cmdInput[40], command[10], arg[30];
+
+    int client_count = 0;
     while (true) { 
         // Accepting a client connection
         if ((connfd = accept(server_fd, (struct sockaddr *)&address, 
@@ -660,47 +708,17 @@ int main(int argc, char *argv[]) {
             perror("Accept failed");
             exit(EXIT_FAILURE);
         }
-        cout << "Connection Established with client IP: " << inet_ntoa(address.sin_addr) << " and Port: " << ntohs(address.sin_port) << endl;
-        ssize_t bytes_read = read(connfd, buff, BUFF_SIZE); // recv 1
-         // -1 to leave space for null terminator
-        if (bytes_read < 0) {
-            perror("Error reading from socket");
-            exit(1);
-        }
-        // Ensure cmdInput is properly null-terminated
-        buff[bytes_read] = '\0'; // Null-terminate the buffer
-        strcpy(cmdInput, buff); // Copy buffer to cmdInput
-        cout << "Client's command: " << cmdInput << endl;
-
-        stringstream ss(cmdInput);
-        string token;
-        if (getline(ss, token, ' ')) {
-            strcpy(command, token.c_str());
-            if (getline(ss, token, ' ')) {
-                strcpy(arg, token.c_str());
-            }
-        }
-
-        if (strcmp(command, "upload") == 0) {
-            _upload(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
-        } else if (strcmp(command, "download") == 0) {
-            _download(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
-        } else if (strcmp(command, "list") == 0) {
-            _list(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
-        } else if (strcmp(command, "delete") == 0) {
-            _delete(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet);
-        } else if (strcmp(command, "add") == 0) {
-            _add(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
-            printDiskList(DiskList);
-        } else if (strcmp(command, "remove") == 0) {
-            _remove(arg, connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
-            printDiskList(DiskList);
-        } else if (strcmp(command, "clean") == 0) {
-            _clean(connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
+        if (client_count < MAX_CLIENTS) {
+            client_count++;
+            threads.emplace_back([connfd, partition, login_name, &partitionArray, &DiskList, &DPAHelper, &userFileHashSet, &diskIndex]() {
+                handleClient(connfd, partition, login_name, partitionArray, DiskList, DPAHelper, userFileHashSet, diskIndex);
+            });
+            cout << "Connection Established with client IP: " << inet_ntoa(address.sin_addr) << " and Port: " << ntohs(address.sin_port) << endl;
         } else {
-            cout << "Invalid command!" << endl;
+            cerr << "Max client limit reached. Connection rejected.\n";
+            close(connfd);
         }
-        close(connfd);
+        
     }
     // Close socket descriptor
     close(server_fd);
