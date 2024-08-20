@@ -267,8 +267,12 @@ void _list(const char* username, int socket, int partition, const char *login_na
     system("sh allFiles.sh");
     remove("allFiles.sh");
 
-    // string outputDirectory = string(directory) + "output.txt";
-    ofstream outfile("list_" + string(username) + "_files.txt", ios::binary);
+    char outputDirectory[MAX_PATHLENGTH];
+    const char* fileList = "_fileList.txt"; 
+    strcpy(outputDirectory, username);
+    strcat(outputDirectory, fileList);
+
+    ofstream outfile(outputDirectory, ios::binary);
     if (!outfile.is_open()) {
         cerr << "Error: Unable to open output file for writing" << endl;
         return;
@@ -280,7 +284,6 @@ void _list(const char* username, int socket, int partition, const char *login_na
 
         ifstream infile(entryPath);
         if (infile.is_open()) {
-            // cout << "Copying contents from " << entryPath << endl;
             outfile << infile.rdbuf();
             infile.close();
             remove(entryPath.c_str());
@@ -288,32 +291,18 @@ void _list(const char* username, int socket, int partition, const char *login_na
     }
     outfile.close();
 
-    /*
-    ifstream f(outputDirectory, ios::binary);
-    if (!f.is_open()) {
-        cerr << "Error: Unable to open output.txt for reading" << endl;
-        return;
+    ifstream listResult(outputDirectory, ios::binary);
+    char buff[BUFF_SIZE];
+    while (listResult.read(buff, BUFF_SIZE) || listResult.gcount() > 0) {
+        send(socket, buff, listResult.gcount(), 0);
     }
+    // Signal that no more data will be sent
+    shutdown(socket, SHUT_WR);
+    listResult.close();
 
-    f.seekg(0, ios::end);
-    int filesize = f.tellg();
-    f.seekg(0, ios::beg);
-
-    char buffer[BUFF_SIZE];
-    while (f.read(buffer, BUFF_SIZE)) {
-        cout << "Sending" << endl;
-        write(socket, buffer, sizeof(buffer));
-    }
-
-    f.close();
-    */
-
-    //remove(outputDirectory.c_str());
+    remove(outputDirectory);
     remove(directory);
-
-    string completedMessage = "Listing was completed and saved to file list_" + string(username) + "_files.txt";
-    cout << completedMessage << endl;
-    write(socket, completedMessage.c_str(), completedMessage.length());
+    cout << "Listing completed!" << endl;
 }
 
 void _delete(const char* userFilename, int socket, int partition, const char *login_name) {

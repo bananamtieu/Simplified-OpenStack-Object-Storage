@@ -71,17 +71,10 @@ void _list(const string& userFilename, int socket) {
     getline(tempFilename, username, '/');
     getline(tempFilename, filename, '/');
     
-    //ofstream outputFile("output.txt", ios::binary);
     char buff[BUFF_SIZE];
-    //int bytesRead;
-    /*
-    while ((bytesRead = read(socket, buff, BUFF_SIZE)) > 0) {
-        outputFile.write(buff, bytesRead);
+    while (read(socket, buff, BUFF_SIZE) > 0) {
+        cout << buff;
     }
-    outputFile.close();
-    */
-    read(socket, buff, BUFF_SIZE);
-    cout << "Server's message: " << string(buff) << endl;
 }
 
 void _delete(const string& userFilename, int socket) {
