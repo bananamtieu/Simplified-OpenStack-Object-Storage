@@ -168,7 +168,7 @@ void _download(const char* userFilename, int socket, int partition, const char *
     int mainDisk = partitionArray[hashValue];
     int backupDisk = ((partitionArray[hashValue] == DiskList.size() - 1)? 0 : partitionArray[hashValue] + 1);
 
-    RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
+    // RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
 
     const char* directory = "/tmp/tempFile/";
     struct stat sb;
@@ -245,7 +245,7 @@ void _list(const char* username, int socket, int partition, const char *login_na
 
                 int backupDisk = ((partitionArray[hashValue] == DiskList.size() - 1)? 0 : partitionArray[hashValue] + 1);
 
-                RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
+                // RestoreFiles(login_name, username, filename, DiskList, backupDisk, mainDisk);
 
                 string GetDiskList = "ssh -o StrictHostKeyChecking=no " + string(login_name) + "@" + DiskList[mainDisk].diskIp + " \"cd /tmp/" + string(login_name) + "/" + string(username) + " ; " + "ls -lrt >> ~/output" + DiskList[mainDisk].diskIp + ".txt\"";
                 string CopyFile = "scp -B " + string(login_name) + "@" + DiskList[mainDisk].diskIp + ":~/output" + DiskList[mainDisk].diskIp + ".txt " + string(directory) + "output" + DiskList[mainDisk].diskIp + ".txt";
@@ -268,9 +268,8 @@ void _list(const char* username, int socket, int partition, const char *login_na
     remove("allFiles.sh");
 
     char outputDirectory[MAX_PATHLENGTH];
-    const char* fileList = "_fileList.txt"; 
     strcpy(outputDirectory, username);
-    strcat(outputDirectory, fileList);
+    strcat(outputDirectory, "_fileList.txt");
 
     ofstream outfile(outputDirectory, ios::binary);
     if (!outfile.is_open()) {
@@ -291,14 +290,14 @@ void _list(const char* username, int socket, int partition, const char *login_na
     }
     outfile.close();
 
-    ifstream listResult(outputDirectory, ios::binary);
+    ifstream fileList(outputDirectory, ios::binary);
     char buff[BUFF_SIZE];
-    while (listResult.read(buff, BUFF_SIZE) || listResult.gcount() > 0) {
-        send(socket, buff, listResult.gcount(), 0);
+    while (fileList.read(buff, BUFF_SIZE) || fileList.gcount() > 0) {
+        send(socket, buff, fileList.gcount(), 0);
     }
     // Signal that no more data will be sent
     shutdown(socket, SHUT_WR);
-    listResult.close();
+    fileList.close();
 
     remove(outputDirectory);
     remove(directory);
@@ -334,6 +333,7 @@ void _delete(const char* userFilename, int socket, int partition, const char *lo
         }
     }
 
+    mtx.lock(); // Lock the mutex before modifying the shared resource
     string userFileHash = md5_hash(userFilename, partition);
     int hashValue = stoi(userFileHash, nullptr, 2);
     
@@ -379,6 +379,7 @@ void _delete(const char* userFilename, int socket, int partition, const char *lo
 
     // Delete file record in DPAHelper
     DPAHelper[hashValue] = "";
+    mtx.unlock(); // Unlock the mutex after modifying the shared resource
 
     // Send result back to client
     sprintf(buff, "%s/%s was deleted from main disk %s and backup disk: %s.", username, filename, DiskList[mainDisk].diskIp, DiskList[backupDisk].diskIp);
@@ -403,8 +404,10 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
                     string username = DPAHelper[i].substr(0, DPAHelper[i].find("/"));
                     string filename = DPAHelper[i].substr(DPAHelper[i].find("/") + 1);
 
+                    /*
                     DownloadUploadForBackup(login_name, username, filename, DiskList, 0, l - 1);
                     DeleteForBackup(login_name, username, filename, DiskList, 0, l - 1);
+                    */
                     
                     char filePath[MAX_PATHLENGTH];
                     sprintf(filePath, "%s/backupFolder/%s/%s", login_name, username, filename);
@@ -431,11 +434,13 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
                     int downloadBackupDisk = ((j == l - 2)? 0 : (j + 1));
                     int uploadBackupDisk = 0;
 
+                    /*
                     DownloadUpload(login_name, username, filename, DiskList, downMainDisk, upMainDisk);
                     Delete(login_name, username, filename, DiskList, downMainDisk, upMainDisk);
 
                     DownloadUploadForBackup(login_name, username, filename, DiskList, downloadBackupDisk, uploadBackupDisk);
                     Delete(login_name, username, filename, DiskList, downloadBackupDisk, uploadBackupDisk);
+                    */
                     
                     char filePath[MAX_PATHLENGTH];
                     sprintf(filePath, "%s/backupFolder/%s/%s", login_name, username, filename);
