@@ -393,14 +393,14 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
     int numDisks = DiskList.size();
     diskIndex[newDiskIp] = numDisks - 1;
 
-    for (int j = 0; j < numDisks - 1; ++j) {
+    for (int i = 0; i < numDisks - 1; ++i) {
         int count = 0;
-        for (int i = 0; i < partitionArray.size(); ++i) {
-            if (partitionArray[i] == j && count < (2 << partition)/numDisks - 1) {
+        for (int pNum = 0; pNum < partitionArray.size(); ++pNum) {
+            if (partitionArray[pNum] == i && count < (2 << partition)/numDisks - 1) {
                 // If the partition was previously assigned to the second-to-last disk
-                if (userFileHashSet.count(i) && j == numDisks - 2) {
-                    string username = DPAHelper[i].substr(0, DPAHelper[i].find("/"));
-                    string filename = DPAHelper[i].substr(DPAHelper[i].find("/") + 1);
+                if (userFileHashSet.count(pNum) && i == numDisks - 2) {
+                    string username = DPAHelper[pNum].substr(0, DPAHelper[pNum].find("/"));
+                    string filename = DPAHelper[pNum].substr(DPAHelper[pNum].find("/") + 1);
 
                     int oldBackupDisk = 0;
                     int newBackupDisk = numDisks - 1;
@@ -426,16 +426,16 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
                     }
                 }
                 count++;
-            } else if (partitionArray[i] == j) {
-                partitionArray[i] = diskIndex[newDiskIp];
-                if (userFileHashSet.count(i)) {
-                    string username = DPAHelper[i].substr(0, DPAHelper[i].find("/"));
-                    string filename = DPAHelper[i].substr(DPAHelper[i].find("/") + 1);
+            } else if (partitionArray[pNum] == i) {
+                partitionArray[pNum] = diskIndex[newDiskIp];
+                if (userFileHashSet.count(pNum)) {
+                    string username = DPAHelper[pNum].substr(0, DPAHelper[pNum].find("/"));
+                    string filename = DPAHelper[pNum].substr(DPAHelper[pNum].find("/") + 1);
 
-                    int oldMainDisk = j;
+                    int oldMainDisk = i;
                     int newMainDisk = diskIndex[newDiskIp];
 
-                    int oldBackupDisk = ((j == numDisks - 2)? 0 : (j + 1));
+                    int oldBackupDisk = ((i == numDisks - 2)? 0 : (i + 1));
                     int newBackupDisk = 0;
 
                     /*
