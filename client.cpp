@@ -140,7 +140,7 @@ int main(int argc, char const *argv[]){
     cout << "Please enter a command: ";
     getline(cin, input);
 
-    send(sockfd, input.c_str(), input.size() + 1, 0); // send 1
+    send(sockfd, input.c_str(), input.size() + 1, 0);
 
     stringstream ss(input);
     getline(ss, command, ' ');

@@ -585,8 +585,7 @@ void handleClient(int client_socket, int partition, const char *login_name) {
     char buff[BUFF_SIZE] = {0};
     char cmdInput[40], command[10], arg[30];
 
-    ssize_t bytes_read = read(client_socket, buff, BUFF_SIZE); // recv 1
-        // -1 to leave space for null terminator
+    ssize_t bytes_read = read(client_socket, buff, BUFF_SIZE);
     if (bytes_read < 0) {
         perror("Error reading from socket");
         exit(1);
@@ -660,7 +659,7 @@ int main(int argc, char *argv[]) {
 
     for (int pNum = 0; pNum < numPartition; ++pNum) {
         for (int i = 0; i < numDisks; i++) {
-            if (pNum >= numPartition * i / numDisks && pNum < numPartition * (i + 1) / numDisks) {
+            if (pNum >= numPartition*i/numDisks && pNum < numPartition*(i + 1)/numDisks) {
                 partitionArray[pNum] = i;
             }
         }
