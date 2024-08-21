@@ -479,8 +479,6 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
     }
     strcat(result, ".");
     write(socket, result, sizeof(result));
-
-    return;
 }
 
 void _remove(const char *oldDiskIp, int socket, int partition, const char *login_name) {
@@ -559,8 +557,6 @@ void _remove(const char *oldDiskIp, int socket, int partition, const char *login
     }
     strcat(result, ".");
     write(socket, result, sizeof(result));
-
-    return;
 }
 
 void _clean(int socket, int partition, const char *login_name) {
@@ -648,34 +644,27 @@ int main(int argc, char *argv[]) {
     int partition = atoi(argv[1]);
     int numDisks = argc - 2;
 
-    // vector<Disk> DiskList;
-    for (int i = 0; i < numDisks; i++) {
+    for (int i = 0; i < numDisks; ++i) {
         Disk newDisk;
         strcpy(newDisk.diskIp, argv[i + 2]);
         DiskList.push_back(newDisk);
+        diskIndex[newDisk.diskIp] = i;
     }
 
     char login_name[MAX_LOGIN_NAME];
     getlogin_r(login_name, MAX_LOGIN_NAME);
 
-    // map<string, int> diskIndex;
-    for (size_t i = 0; i < DiskList.size(); ++i) {
-        diskIndex[DiskList[i].diskIp] = i;
-    }
-
     int numPartition = (2 << partition);
     partitionArray = vector<int>(numPartition);
     DPAHelper = vector<string>(numPartition);
 
-    for (int pNum = 0; pNum < numPartition; pNum++) {
+    for (int pNum = 0; pNum < numPartition; ++pNum) {
         for (int i = 0; i < numDisks; i++) {
             if (pNum >= numPartition * i / numDisks && pNum < numPartition * (i + 1) / numDisks) {
                 partitionArray[pNum] = i;
             }
         }
     }
-
-    // set<int> userFileHashSet;
 
     // Creating socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
