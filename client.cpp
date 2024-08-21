@@ -146,29 +146,29 @@ int main(int argc, char const *argv[]){
     getline(ss, command, ' ');
     getline(ss, arg, ' ');
 
-    if (command == "upload") {
+    if (command.compare("upload") == 0) {
         _upload(arg, sockfd);
     }
-    else if (command == "download") {
+    else if (command.compare("download") == 0) {
         _download(arg, sockfd);
     }
-    else if (command == "list") {
+    else if (command.compare("list") == 0) {
         _list(arg, sockfd);
     }
-    else if (command == "delete") {
+    else if (command.compare("delete") == 0) {
         _delete(arg, sockfd);
     }
-    else if (command == "add") {
+    else if (command.compare("add") == 0) {
         _add(arg, sockfd);
     }
-    else if (command == "remove") {
+    else if (command.compare("remove") == 0) {
         _remove(arg, sockfd);
     }
-    else if (command == "clean") {
+    else if (command.compare("clean") == 0) {
         _clean(sockfd);
     }
     else {
-        printf("Invalid command!\n");
+        cout << "Invalid command!" << endl;
     }
 
     close(sockfd);
