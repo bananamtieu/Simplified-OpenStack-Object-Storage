@@ -394,9 +394,8 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
     diskIndex[newDiskIp] = numDisks - 1;
 
     for (int i = 0; i < numDisks - 1; ++i) {
-        int count = 0;
         for (int pNum = 0; pNum < partitionArray.size(); ++pNum) {
-            if (partitionArray[pNum] == i && count < (2 << partition)/numDisks - 1) {
+            if (partitionArray[pNum] == i && (pNum + 1)%numDisks != (numDisks - 1)) {
                 // If the partition was previously assigned to the second-to-last disk
                 if (userFileHashSet.count(pNum) && i == numDisks - 2) {
                     string username = DPAHelper[pNum].substr(0, DPAHelper[pNum].find("/"));
@@ -412,20 +411,17 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
                     
                     // Move backup file from the first disk to the new disk
                     char filePath[MAX_PATHLENGTH];
-                    if (newBackupDisk != oldBackupDisk) {
-                        sprintf(filePath, "%s/backupFolder/%s/%s", login_name, username, filename);
-                        DiskList[newBackupDisk].fileList.push_back(filePath);
-                        vector<string> filelist = DiskList[oldBackupDisk].fileList;
-                        for (auto it = filelist.begin(); it != filelist.end(); ) {
-                            if (it->find("/backupfolder/" + username + "/" + filename) != string::npos) {
-                                it = filelist.erase(it);
-                            } else {
-                                ++it;
-                            }
+                    sprintf(filePath, "%s/backupFolder/%s/%s", login_name, username, filename);
+                    DiskList[newBackupDisk].fileList.push_back(filePath);
+                    vector<string> filelist = DiskList[oldBackupDisk].fileList;
+                    for (auto it = filelist.begin(); it != filelist.end(); ) {
+                        if (it->find("/backupfolder/" + username + "/" + filename) != string::npos) {
+                            it = filelist.erase(it);
+                        } else {
+                            ++it;
                         }
                     }
                 }
-                count++;
             } else if (partitionArray[pNum] == i) {
                 partitionArray[pNum] = diskIndex[newDiskIp];
                 if (userFileHashSet.count(pNum)) {
@@ -448,34 +444,29 @@ void _add(const char *newDiskIp, int socket, int partition, const char *login_na
 
                     // Update main disk location
                     char filePath[MAX_PATHLENGTH];
-                    if (newMainDisk != oldMainDisk) {
-                        sprintf(filePath, "%s/%s/%s", login_name, username, filename);
-                        DiskList[newMainDisk].fileList.push_back(filePath);
-                        vector<string> filelist = DiskList[oldMainDisk].fileList;
-                        for (auto it = filelist.begin(); it != filelist.end(); ) {
-                            if (it->find(username + "/" + filename) != string::npos) {
-                                it = filelist.erase(it);
-                            } else {
-                                ++it;
-                            }
+                    sprintf(filePath, "%s/%s/%s", login_name, username, filename);
+                    DiskList[newMainDisk].fileList.push_back(filePath);
+                    vector<string> filelist = DiskList[oldMainDisk].fileList;
+                    for (auto it = filelist.begin(); it != filelist.end(); ) {
+                        if (it->find(username + "/" + filename) != string::npos) {
+                            it = filelist.erase(it);
+                        } else {
+                            ++it;
                         }
                     }
                     
                     // Update backup disk location
-                    if (newBackupDisk != oldBackupDisk) {
-                        sprintf(filePath, "%s/backupFolder/%s/%s", login_name, username, filename);
-                        DiskList[newBackupDisk].fileList.push_back(filePath);
-                        vector<string> backupFileList = DiskList[oldBackupDisk].fileList;
-                        for (auto it = backupFileList.begin(); it != backupFileList.end(); ) {
-                            if (it->find("/backupfolder/" + username + "/" + filename) != string::npos) {
-                                it = backupFileList.erase(it);
-                            } else {
-                                ++it;
-                            }
+                    sprintf(filePath, "%s/backupFolder/%s/%s", login_name, username, filename);
+                    DiskList[newBackupDisk].fileList.push_back(filePath);
+                    vector<string> backupFileList = DiskList[oldBackupDisk].fileList;
+                    for (auto it = backupFileList.begin(); it != backupFileList.end(); ) {
+                        if (it->find("/backupfolder/" + username + "/" + filename) != string::npos) {
+                            it = backupFileList.erase(it);
+                        } else {
+                            ++it;
                         }
                     }
                 }
-                count++;
             }
         }
     }
