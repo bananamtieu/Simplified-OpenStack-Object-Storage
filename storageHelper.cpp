@@ -70,7 +70,7 @@ void RestoreFiles(const char *LoginName, const char *username, const char *filen
     rmdir(directory.c_str());
 }
 
-void DownloadUpload(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dMainDisk, int uMainDisk) {
+void moveMain(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldMainDisk, int newMainDisk) {
     // Download
     string directory = "/tmp/tempFile/";
     if (system(("mkdir -p " + directory).c_str()) != 0) {
@@ -80,7 +80,7 @@ void DownloadUpload(const string& LoginName, const string& username, const strin
 
     ofstream commandfile("commandfile.sh");
     commandfile << "#!/bin/bash" << endl;
-    string CopyFile = "scp -B " + LoginName + "@" + DiskList[dMainDisk].diskIp +":/tmp/" + LoginName + "/" + username + "/" + filename + " " + directory + filename;
+    string CopyFile = "scp -B " + LoginName + "@" + DiskList[oldMainDisk].diskIp +":/tmp/" + LoginName + "/" + username + "/" + filename + " " + directory + filename;
     commandfile << CopyFile << endl;
     commandfile.close();
 
@@ -92,8 +92,8 @@ void DownloadUpload(const string& LoginName, const string& username, const strin
     ofstream commandfileUpload("commandfile.sh");
     commandfileUpload << "#!/bin/bash" << endl;
 
-    string folderCreate = "ssh -o StrictHostKeyChecking=no " + LoginName+"@" + DiskList[uMainDisk].diskIp + " \"mkdir -p /tmp/" + LoginName + "/" + username + "\"";
-    string CopyFileUpload = "scp -B " + directory + filename + " " + LoginName + "@" + DiskList[uMainDisk].diskIp + ":/tmp/" + LoginName + "/" + username + "/" + filename;
+    string folderCreate = "ssh -o StrictHostKeyChecking=no " + LoginName+"@" + DiskList[newMainDisk].diskIp + " \"mkdir -p /tmp/" + LoginName + "/" + username + "\"";
+    string CopyFileUpload = "scp -B " + directory + filename + " " + LoginName + "@" + DiskList[newMainDisk].diskIp + ":/tmp/" + LoginName + "/" + username + "/" + filename;
     commandfileUpload << folderCreate << endl;
     commandfileUpload << CopyFileUpload << endl;
     commandfileUpload.close();
@@ -106,12 +106,12 @@ void DownloadUpload(const string& LoginName, const string& username, const strin
     remove(directory.c_str());
 }
 
-void Delete(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dMainDisk, int uMainDisk) {
+void deleteOldMain(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldMainDisk) {
     // Delete
     ofstream commandfile("commandfile.sh");
     commandfile << "#!/bin/bash" << endl;
 
-    string DeleteFile = "ssh -o StrictHostKeyChecking=no "+ LoginName + "@" + DiskList[dMainDisk].diskIp +" \"cd /tmp/" + LoginName + "/" + username + " ; " + "rm " + filename + "\"";
+    string DeleteFile = "ssh -o StrictHostKeyChecking=no "+ LoginName + "@" + DiskList[oldMainDisk].diskIp +" \"cd /tmp/" + LoginName + "/" + username + " ; " + "rm " + filename + "\"";
     commandfile << DeleteFile << endl;
     commandfile.close();
 
@@ -120,7 +120,7 @@ void Delete(const string& LoginName, const string& username, const string& filen
     remove("commandfile.sh");
 }
 
-void DownloadUploadForBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dBackupDisk, int uBackupDisk) {
+void moveBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldBackupDisk, int newBackupDisk) {
     // Download
     string directory = "/tmp/tempFile/";
     if (system(("mkdir -p " + directory).c_str()) != 0) {
@@ -131,7 +131,7 @@ void DownloadUploadForBackup(const string& LoginName, const string& username, co
     ofstream commandfile("commandfile.sh");
     commandfile << "#!/bin/bash" << endl;
     
-    string CopyFile = "scp -B " + LoginName + "@" + DiskList[dBackupDisk].diskIp + ":/tmp/" + LoginName + "/backupfolder/" + username + "/" + filename + " " + directory + filename;
+    string CopyFile = "scp -B " + LoginName + "@" + DiskList[oldBackupDisk].diskIp + ":/tmp/" + LoginName + "/backupfolder/" + username + "/" + filename + " " + directory + filename;
     commandfile << CopyFile << endl;
     commandfile.close();
 
@@ -143,9 +143,9 @@ void DownloadUploadForBackup(const string& LoginName, const string& username, co
     ofstream commandfileUpload("commandfile.sh");
     commandfileUpload << "#!/bin/bash" << endl;
     
-    string folderCreateB = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[uBackupDisk].diskIp + " \"mkdir -p /tmp/" + LoginName + "/backupfolder" + "\"";
-    string folderCreate = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[uBackupDisk].diskIp +" \"mkdir -p /tmp/" + LoginName + "/backupfolder/" + username + "\"";
-    string CopyFileUpload = "scp -B " + directory + filename + " " + LoginName + "@" + DiskList[uBackupDisk].diskIp + ":/tmp/" + LoginName + "/backupfolder/" + username + "/" + filename;
+    string folderCreateB = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[newBackupDisk].diskIp + " \"mkdir -p /tmp/" + LoginName + "/backupfolder" + "\"";
+    string folderCreate = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[newBackupDisk].diskIp +" \"mkdir -p /tmp/" + LoginName + "/backupfolder/" + username + "\"";
+    string CopyFileUpload = "scp -B " + directory + filename + " " + LoginName + "@" + DiskList[newBackupDisk].diskIp + ":/tmp/" + LoginName + "/backupfolder/" + username + "/" + filename;
     commandfileUpload << folderCreateB << endl;
     commandfileUpload << folderCreate << endl;
     commandfileUpload << CopyFileUpload << endl;
@@ -159,12 +159,12 @@ void DownloadUploadForBackup(const string& LoginName, const string& username, co
     remove(directory.c_str());
 }
 
-void DeleteForBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dBackupDisk, int uBackupDisk) {
+void deleteOldBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldBackupDisk) {
     // Delete
     ofstream commandfile("commandfile.sh");
     commandfile << "#!/bin/bash" << endl;
     
-    string DeleteFile = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[dBackupDisk].diskIp + " \"cd /tmp/" + LoginName + "/backupfolder/" + username + " ; " + "rm " + filename + "\"";
+    string DeleteFile = "ssh -o StrictHostKeyChecking=no " + LoginName + "@" + DiskList[oldBackupDisk].diskIp + " \"cd /tmp/" + LoginName + "/backupfolder/" + username + " ; " + "rm " + filename + "\"";
     commandfile << DeleteFile << endl;
     commandfile.close();
 

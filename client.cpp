@@ -136,35 +136,34 @@ int main(int argc, char const *argv[]){
         return -1;
     }
 
-    string input, command, arg;
+    string cmdInput;
     cout << "Please enter a command: ";
-    getline(cin, input);
+    getline(cin, cmdInput);
 
-    send(sockfd, input.c_str(), input.size() + 1, 0);
+    send(sockfd, cmdInput.c_str(), cmdInput.size() + 1, 0);
 
-    stringstream ss(input);
-    getline(ss, command, ' ');
-    getline(ss, arg, ' ');
+    string command = cmdInput.substr(0, cmdInput.find(" "));
+    string arg = cmdInput.substr(cmdInput.find(" ") + 1);
 
-    if (command.compare("upload") == 0) {
+    if (command == "upload") {
         _upload(arg, sockfd);
     }
-    else if (command.compare("download") == 0) {
+    else if (command == "download") {
         _download(arg, sockfd);
     }
-    else if (command.compare("list") == 0) {
+    else if (command == "list") {
         _list(arg, sockfd);
     }
-    else if (command.compare("delete") == 0) {
+    else if (command == "delete") {
         _delete(arg, sockfd);
     }
-    else if (command.compare("add") == 0) {
+    else if (command == "add") {
         _add(arg, sockfd);
     }
-    else if (command.compare("remove") == 0) {
+    else if (command == "remove") {
         _remove(arg, sockfd);
     }
-    else if (command.compare("clean") == 0) {
+    else if (command == "clean") {
         _clean(sockfd);
     }
     else {

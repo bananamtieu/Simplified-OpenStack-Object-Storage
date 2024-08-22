@@ -8,14 +8,14 @@
 using namespace std;
 
 struct Disk {
-    char diskIp[MAX_DISKNAMELENGTH];
+    string diskIp;
     vector<string> fileList;
 };
 
 void RestoreFiles(const char *LoginName, const char *username, const char *filename, vector<Disk> DiskList, int BackupDisk, int MainDisk);
-void DownloadUpload(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dMainDisk, int uMainDisk);
-void Delete(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dMainDisk, int uMainDisk);
-void DownloadUploadForBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dBackupDisk, int uBackupDisk);
-void DeleteForBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int dBackupDisk, int uBackupDisk);
+void moveMain(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldMainDisk, int newMainDisk);
+void deleteOldMain(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldMainDisk);
+void moveBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldBackupDisk, int newBackupDisk);
+void deleteOldBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldBackupDisk);
 
 #endif
