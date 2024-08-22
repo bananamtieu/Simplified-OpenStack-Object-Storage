@@ -104,6 +104,10 @@ void moveMain(const string& LoginName, const string& username, const string& fil
 
     remove((directory + filename).c_str());
     remove(directory.c_str());
+
+    cout << "File " << username << "/" << filename
+        << " has been moved from disk " << DiskList[oldMainDisk].diskIp
+        << " to disk " << DiskList[newMainDisk].diskIp << endl;
 }
 
 void deleteOldMain(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldMainDisk) {
@@ -157,6 +161,10 @@ void moveBackup(const string& LoginName, const string& username, const string& f
 
     remove((directory + filename).c_str());
     remove(directory.c_str());
+
+    cout << "Backup file " << username << "/" << filename
+        << " has been moved from disk " << DiskList[oldBackupDisk].diskIp
+        << " to disk " << DiskList[newBackupDisk].diskIp << endl;
 }
 
 void deleteOldBackup(const string& LoginName, const string& username, const string& filename, vector<Disk> DiskList, int oldBackupDisk) {

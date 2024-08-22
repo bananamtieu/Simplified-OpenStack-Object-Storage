@@ -13,6 +13,7 @@
 #include <set>
 #include <vector>
 #include <map>
+#include <algorithm>
 #include <thread>
 #include <mutex>
 #include <bits/stdc++.h>
@@ -26,9 +27,9 @@ using namespace std;
 mutex mtx;
 vector<int> partitionArray;
 vector<Disk> DiskList;
-vector<string> DPAHelper;
-set<int> userFileHashSet;
-map<string, int> diskIndex;
+set<int> userFileHashSet; // hash values
+vector<string> DPAHelper; // file name associated with that parition
+map<string, int> diskIndex; // diskIp --> diskIndex
 int client_count = 0;
 
 void printDiskList() {
@@ -364,9 +365,10 @@ void _add(const string& newDiskIp, int socket, int partition, const string& logi
 
     int numDisks = DiskList.size();
     diskIndex[newDiskIp] = numDisks - 1;
+    int numPartition = partitionArray.size();
 
     for (int i = 0; i < numDisks - 1; ++i) {
-        for (int pNum = 0; pNum < partitionArray.size(); ++pNum) {
+        for (int pNum = 0; pNum < numPartition; ++pNum) {
             if (partitionArray[pNum] == i && (pNum + 1) % numDisks != (numDisks - 1)) {
                 if (userFileHashSet.count(pNum) && i == numDisks - 2) {
                     string userFile = DPAHelper[pNum];
@@ -388,10 +390,6 @@ void _add(const string& newDiskIp, int socket, int partition, const string& logi
                             [&](const string& file) { 
                                 return file.find("/backupfolder/" + username + "/" + filename) != string::npos; 
                             }), filelist.end());
-
-                        cout << "Backup file of " << username << "/" << filename
-                            << " has been moved from disk " << DiskList[oldBackupDisk].diskIp
-                            << " to disk " << DiskList[newBackupDisk].diskIp << endl;
                     }
                 }
             } else if (partitionArray[pNum] == i) {
@@ -419,10 +417,6 @@ void _add(const string& newDiskIp, int socket, int partition, const string& logi
                                 return file.find("/backupFolder/") == string::npos &&
                                     file.find(username + "/" + filename) != string::npos; 
                             }), filelist.end());
-
-                        cout << "File " << username << "/" << filename
-                            << " has been moved from disk " << DiskList[oldMainDisk].diskIp
-                            << " to disk " << DiskList[newMainDisk].diskIp << endl;
                     }
 
                     if (newBackupDisk != oldBackupDisk) {
@@ -437,10 +431,6 @@ void _add(const string& newDiskIp, int socket, int partition, const string& logi
                             [&](const string& file) { 
                                 return file.find("/backupfolder/" + username + "/" + filename) != string::npos; 
                             }), backupFileList.end());
-
-                        cout << "Backup file of " << username << "/" << filename
-                            << " has been moved from disk " << DiskList[oldBackupDisk].diskIp
-                            << " to disk " << DiskList[newBackupDisk].diskIp << endl;
                     }
                 }
             }
@@ -463,56 +453,61 @@ void _remove(const string& oldDiskIp, int socket, int partition, const string& l
     vector<int> oldPartitionArray(partitionArray);
 
     // Check if OldDisk exists
-    int oldDisk = -1;
-    for (int i = 0; i < DiskList.size(); ++i) {
-        if (DiskList[i].diskIp == oldDiskIp) {
-            oldDisk = i;
-            break;
-        }
-    }
-    if (oldDisk == -1) {
+    if (diskIndex.find(oldDiskIp) == diskIndex.end()) {
         cout << "Invalid disk IP!" << endl;
         return;
     }
-
     int numDisks = DiskList.size();
-    int numIndexes = diskIndex.size();
+    int numPartition = partitionArray.size();
+    int oldDiskIndex = diskIndex[oldDiskIp];
 
-    // Remove old disk record in partitionArray
-    for (int j = 0; j < numIndexes; ++j) {
-        int count = 0;
-        for (int i = 0; i < partitionArray.size(); ++i) {
-            if (partitionArray[i] == j) {
-                count++;
-            }
-        }
-        for (int k = 0; k < partitionArray.size(); ++k) {
-            if (partitionArray[k] == oldDisk && count < (2 << partition) / (numDisks - 1)) {
-                partitionArray[k] = diskIndex[DiskList[j].diskIp];
-                count++;
-            }
-        }
+    // Swap old disk and last disk
+    if (oldDiskIndex != numDisks - 1) {
+        Disk lastDisk = DiskList[numDisks - 1];
+        DiskList[numDisks - 1] = DiskList[oldDiskIndex];
+        DiskList[oldDiskIndex] = lastDisk;
+        diskIndex[lastDisk.diskIp] = oldDiskIndex;
+        diskIndex[oldDiskIp] = numDisks - 1;
+
+        replace(partitionArray.begin(), partitionArray.end(), numDisks - 1, -1);
+        replace(partitionArray.begin(), partitionArray.end(), oldDiskIndex, numDisks - 1);
+        replace(partitionArray.begin(), partitionArray.end(), -1, oldDiskIndex);
+        oldDiskIndex = numDisks - 1;
     }
 
-    for (int h = 0; h < partitionArray.size(); ++h) {
-        if (oldPartitionArray[h] == oldDisk - 1 && userFileHashSet.count(h)) {
+    // Remove old disk record in partitionArray
+    int count = 0;
+    for (int pNum = 0; pNum < numPartition; ++pNum) {
+        if (partitionArray[pNum] == oldDiskIndex) {
+            partitionArray[pNum] = count%(numDisks - 1);
+        }
+        count++;
+    }
+
+    for (int pNum = 0; pNum < numPartition; ++pNum) {
+        cout << partitionArray[pNum] << "  ";
+    }
+    cout << endl;
+
+    for (int h = 0; h < numPartition; ++h) {
+        if (oldPartitionArray[h] == oldDiskIndex - 1 && userFileHashSet.count(h)) {
             string userFile = DPAHelper[h];
             string username = userFile.substr(0, userFile.find("/"));
             string filename = userFile.substr(userFile.find("/") + 1);
 
             string filePath = login_name + "/backupFolder/" + username + "/" + filename;
-            DiskList[oldDisk + 1].fileList.push_back(filePath);
+            DiskList[oldDiskIndex + 1].fileList.push_back(filePath);
         }
 
-        if (oldPartitionArray[h] == oldDisk && userFileHashSet.count(h)) {
+        if (oldPartitionArray[h] == oldDiskIndex && userFileHashSet.count(h)) {
             string userFile = DPAHelper[h];
             string username = userFile.substr(0, userFile.find("/"));
             string filename = userFile.substr(userFile.find("/") + 1);
 
-            int oldMainDisk = oldDisk;
+            int oldMainDisk = oldDiskIndex;
             int newMainDisk = partitionArray[h];
-            int oldBackupDisk = (partitionArray[h] == (numDisks - 1)) ? 0 : oldDisk + 1;
-            int newBackupDisk = (partitionArray[h] == (oldDisk - 1)) ? partitionArray[h] + 2 : partitionArray[h] + 1;
+            int oldBackupDisk = (partitionArray[h] == (numDisks - 1)) ? 0 : oldDiskIndex + 1;
+            int newBackupDisk = (partitionArray[h] == (oldDiskIndex - 1)) ? partitionArray[h] + 2 : partitionArray[h] + 1;
 
             if (DiskList[newMainDisk].diskIp != DiskList[oldMainDisk].diskIp) {
                 string filePath = login_name + "/" + username + "/" + filename;
@@ -525,7 +520,7 @@ void _remove(const string& oldDiskIp, int socket, int partition, const string& l
         }
     }
 
-    DiskList.erase(DiskList.begin() + oldDisk);
+    DiskList.erase(DiskList.begin() + oldDiskIndex);
 
     // Send result back to client
     string result = "All files are now in disks";
@@ -584,9 +579,9 @@ void handleClient(int client_socket, int partition, const char *login_name) {
     } else if (command == "delete") {
         _delete(arg, client_socket, partition, login_name);
     } else if (command == "add") {
-        _add(arg.c_str(), client_socket, partition, login_name);
+        _add(arg, client_socket, partition, login_name);
     } else if (command == "remove") {
-        _remove(arg.c_str(), client_socket, partition, login_name);
+        _remove(arg, client_socket, partition, login_name);
     } else if (command == "clean") {
         _clean(client_socket, partition, login_name);
     } else {
@@ -633,6 +628,10 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+    for (int pNum = 0; pNum < numPartition; ++pNum) {
+        cout << partitionArray[pNum] << "  ";
+    }
+    cout << endl;
 
     // Creating socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {

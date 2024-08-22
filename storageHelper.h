@@ -2,8 +2,6 @@
 #define STORAGEHELPER_H
 
 #define MAX_LOGIN_NAME 30
-#define MAX_DISKNAMELENGTH 20
-#define MAX_PATHLENGTH 80
 
 using namespace std;
 
