@@ -599,9 +599,6 @@ void handleClient(int client_socket, int partition, const char *login_name) {
     } else if (command == "add") {
         _add(arg, client_socket, partition, login_name);
     } else if (command == "remove") {
-        if (arg == "10.16.8.66") {
-            cout << "marched" << endl;
-        }
         _remove(arg, client_socket, partition, login_name);
     } else if (command == "clean") {
         _clean(client_socket, partition, login_name);
@@ -649,12 +646,6 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-    /*
-    for (int pNum = 0; pNum < numPartition; ++pNum) {
-        cout << partitionArray[pNum] << "  ";
-    }
-    cout << endl;
-    */
 
     // Creating socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
