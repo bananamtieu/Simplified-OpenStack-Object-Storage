@@ -388,7 +388,7 @@ void _add(const string& newDiskIp, int socket, int partition, const string& logi
                         auto& filelist = DiskList[oldBackupDisk].fileList;
                         filelist.erase(remove_if(filelist.begin(), filelist.end(),
                             [&](const string& file) { 
-                                return file.find("/backupfolder/" + username + "/" + filename) != string::npos; 
+                                return file.find("/backupFolder/" + username + "/" + filename) != string::npos; 
                             }), filelist.end());
                     }
                 }
@@ -429,7 +429,7 @@ void _add(const string& newDiskIp, int socket, int partition, const string& logi
                         auto& backupFileList = DiskList[oldBackupDisk].fileList;
                         backupFileList.erase(remove_if(backupFileList.begin(), backupFileList.end(),
                             [&](const string& file) { 
-                                return file.find("/backupfolder/" + username + "/" + filename) != string::npos; 
+                                return file.find("/backupFolder/" + username + "/" + filename) != string::npos; 
                             }), backupFileList.end());
                     }
                 }
@@ -514,7 +514,7 @@ void _remove(const string& rmDiskIp, int socket, int partition, const string& lo
                 auto& backupFileList = DiskList[oldBackupDisk].fileList;
                 backupFileList.erase(remove_if(backupFileList.begin(), backupFileList.end(),
                     [&](const string& file) { 
-                        return file.find("/backupfolder/" + username + "/" + filename) != string::npos; 
+                        return file.find("/backupFolder/" + username + "/" + filename) != string::npos; 
                     }), backupFileList.end());
             }
         }
