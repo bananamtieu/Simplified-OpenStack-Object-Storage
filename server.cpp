@@ -454,12 +454,38 @@ void _remove(const string& rmDiskIp, int socket, int partition, const string& lo
 
     // Check if OldDisk exists
     if (diskIndex.find(rmDiskIp) == diskIndex.end()) {
-        cout << "Invalid disk IP!" << endl;
+        string invalidDisk = "Invalid disk IP!";
+        cout << invalidDisk << endl;
+        write(socket, invalidDisk.c_str(), invalidDisk.size());
         return;
     }
     int numDisks = DiskList.size();
     int numPartition = partitionArray.size();
     int rmDisk = diskIndex[rmDiskIp];
+
+    // First edge case: removing the only disk
+    if (rmDisk == 0 && numDisks == 1) {
+        mtx.lock(); // Lock the mutex before modifying the shared resource
+
+        partitionArray.clear();
+        DiskList[0].fileList.clear();
+        string clearCommand = "ssh -o StrictHostKeyChecking=no " + login_name + "@" + DiskList[0].diskIp 
+                + " \"rm -rf /tmp/" + login_name + "\"";
+        system(clearCommand.c_str());
+
+        for (int hashSet : userFileHashSet) {
+            DPAHelper[hashSet] = "";
+        }
+
+        userFileHashSet.clear();
+        diskIndex.clear();
+
+        mtx.unlock(); // Unlock the mutex after modifying the shared resource
+
+        string message = "All diskes have been removed. The storage is now empty!";
+        write(socket, message.c_str(), message.size());
+        return;
+    }
 
     mtx.lock(); // Lock the mutex before modifying the shared resource
 
@@ -473,49 +499,149 @@ void _remove(const string& rmDiskIp, int socket, int partition, const string& lo
         count++;
     }
 
-    for (int pNum = 0; pNum < numPartition; ++pNum) {
-        if (oldPartitionArray[pNum] == rmDisk - 1 && userFileHashSet.count(pNum)) {
-            string userFile = DPAHelper[pNum];
-            string username = userFile.substr(0, userFile.find("/"));
-            string filename = userFile.substr(userFile.find("/") + 1);
+    if (rmDisk == 0) {
+        for (int pNum = 0; pNum < numPartition; ++pNum) {
+            if (partitionArray[pNum] == numDisks - 1 && userFileHashSet.count(pNum)) {
+                string userFile = DPAHelper[pNum];
+                string username = userFile.substr(0, userFile.find("/"));
+                string filename = userFile.substr(userFile.find("/") + 1);
 
-            moveBackup(login_name, username, filename, DiskList, rmDisk, rmDisk + 1);
-            deleteOldBackup(login_name, username, filename, DiskList, rmDisk);
-
-            string filePath = login_name + "/backupFolder/" + username + "/" + filename;
-            DiskList[rmDisk + 1].fileList.push_back(filePath);
-        }
-
-        if (oldPartitionArray[pNum] == rmDisk && userFileHashSet.count(pNum)) {
-            string userFile = DPAHelper[pNum];
-            string username = userFile.substr(0, userFile.find("/"));
-            string filename = userFile.substr(userFile.find("/") + 1);
-
-            int oldMainDisk = rmDisk;
-            int newMainDisk = partitionArray[pNum];
-            int oldBackupDisk = (partitionArray[pNum] == (numDisks - 1)) ? 0 : rmDisk + 1;
-            int newBackupDisk = (partitionArray[pNum] == (rmDisk - 1)) ?
-                partitionArray[pNum] + 2 : partitionArray[pNum] + 1;
-
-            if (newMainDisk != oldMainDisk) {
-                moveMain(login_name, username, filename, DiskList, oldMainDisk, newMainDisk);
-                deleteOldMain(login_name, username, filename, DiskList, oldMainDisk);
-
-                string filePath = login_name + "/" + username + "/" + filename;
-                DiskList[newMainDisk].fileList.push_back(filePath);
-            }
-            if (newBackupDisk != oldBackupDisk) {
-                moveBackup(login_name, username, filename, DiskList, oldBackupDisk, newBackupDisk);
-                deleteOldBackup(login_name, username, filename, DiskList, oldBackupDisk);
+                // rmDisk + 1 is guaranteed to exist because the only one disk case has been dealt with
+                moveBackup(login_name, username, filename, DiskList, rmDisk, rmDisk + 1);
+                deleteOldBackup(login_name, username, filename, DiskList, rmDisk);
 
                 string filePath = login_name + "/backupFolder/" + username + "/" + filename;
-                DiskList[newBackupDisk].fileList.push_back(filePath);
+                DiskList[rmDisk + 1].fileList.push_back(filePath);
+            }
+            if (oldPartitionArray[pNum] == rmDisk && userFileHashSet.count(pNum)) {
+                string userFile = DPAHelper[pNum];
+                string username = userFile.substr(0, userFile.find("/"));
+                string filename = userFile.substr(userFile.find("/") + 1);
 
-                auto& backupFileList = DiskList[oldBackupDisk].fileList;
-                backupFileList.erase(remove_if(backupFileList.begin(), backupFileList.end(),
-                    [&](const string& file) { 
-                        return file.find("/backupFolder/" + username + "/" + filename) != string::npos; 
-                    }), backupFileList.end());
+                int oldMainDisk = rmDisk;
+                int newMainDisk = partitionArray[pNum];
+                int oldBackupDisk = rmDisk + 1;
+                int newBackupDisk = (partitionArray[pNum] == (numDisks - 1))? 1 : partitionArray[pNum] + 1;
+
+                if (newMainDisk != oldMainDisk) {
+                    moveMain(login_name, username, filename, DiskList, oldMainDisk, newMainDisk);
+                    deleteOldMain(login_name, username, filename, DiskList, oldMainDisk);
+
+                    string filePath = login_name + "/" + username + "/" + filename;
+                    DiskList[newMainDisk].fileList.push_back(filePath);
+                }
+                if (newBackupDisk != oldBackupDisk) {
+                    moveBackup(login_name, username, filename, DiskList, oldBackupDisk, newBackupDisk);
+                    deleteOldBackup(login_name, username, filename, DiskList, oldBackupDisk);
+
+                    string filePath = login_name + "/backupFolder/" + username + "/" + filename;
+                    DiskList[newBackupDisk].fileList.push_back(filePath);
+
+                    auto& backupFileList = DiskList[oldBackupDisk].fileList;
+                    backupFileList.erase(remove_if(backupFileList.begin(), backupFileList.end(),
+                        [&](const string& file) { 
+                            return file.find("/backupFolder/" + username + "/" + filename) != string::npos; 
+                        }), backupFileList.end());
+                }
+            }
+        }
+    }
+    else if (rmDisk = numDisks - 1) {
+        for (int pNum = 0; pNum < numPartition; ++pNum) {
+            if (partitionArray[pNum] == rmDisk - 1 && userFileHashSet.count(pNum)) {
+                string userFile = DPAHelper[pNum];
+                string username = userFile.substr(0, userFile.find("/"));
+                string filename = userFile.substr(userFile.find("/") + 1);
+
+                // Last disk will be removed, so backup file to first disk
+                moveBackup(login_name, username, filename, DiskList, rmDisk, 0);
+                deleteOldBackup(login_name, username, filename, DiskList, rmDisk);
+
+                string filePath = login_name + "/backupFolder/" + username + "/" + filename;
+                DiskList[0].fileList.push_back(filePath);
+            }
+            if (oldPartitionArray[pNum] == rmDisk && userFileHashSet.count(pNum)) {
+                string userFile = DPAHelper[pNum];
+                string username = userFile.substr(0, userFile.find("/"));
+                string filename = userFile.substr(userFile.find("/") + 1);
+
+                int oldMainDisk = rmDisk;
+                int newMainDisk = partitionArray[pNum];
+                int oldBackupDisk = 0;
+                int newBackupDisk = (partitionArray[pNum] == (numDisks - 2))? 0 : partitionArray[pNum] + 1; // rmDisk - 1
+
+                if (newMainDisk != oldMainDisk) {
+                    moveMain(login_name, username, filename, DiskList, oldMainDisk, newMainDisk);
+                    deleteOldMain(login_name, username, filename, DiskList, oldMainDisk);
+
+                    string filePath = login_name + "/" + username + "/" + filename;
+                    DiskList[newMainDisk].fileList.push_back(filePath);
+                }
+                if (newBackupDisk != oldBackupDisk) {
+                    moveBackup(login_name, username, filename, DiskList, oldBackupDisk, newBackupDisk);
+                    deleteOldBackup(login_name, username, filename, DiskList, oldBackupDisk);
+
+                    string filePath = login_name + "/backupFolder/" + username + "/" + filename;
+                    DiskList[newBackupDisk].fileList.push_back(filePath);
+
+                    auto& backupFileList = DiskList[oldBackupDisk].fileList;
+                    backupFileList.erase(remove_if(backupFileList.begin(), backupFileList.end(),
+                        [&](const string& file) { 
+                            return file.find("/backupFolder/" + username + "/" + filename) != string::npos; 
+                        }), backupFileList.end());
+                }
+            }
+        }
+    }
+    else {
+        for (int pNum = 0; pNum < numPartition; ++pNum) {
+            if (partitionArray[pNum] == rmDisk - 1 && userFileHashSet.count(pNum)) {
+                string userFile = DPAHelper[pNum];
+                string username = userFile.substr(0, userFile.find("/"));
+                string filename = userFile.substr(userFile.find("/") + 1);
+
+                moveBackup(login_name, username, filename, DiskList, rmDisk, rmDisk + 1);
+                deleteOldBackup(login_name, username, filename, DiskList, rmDisk);
+
+                string filePath = login_name + "/backupFolder/" + username + "/" + filename;
+                DiskList[rmDisk + 1].fileList.push_back(filePath);
+            }
+            if (oldPartitionArray[pNum] == rmDisk && userFileHashSet.count(pNum)) {
+                string userFile = DPAHelper[pNum];
+                string username = userFile.substr(0, userFile.find("/"));
+                string filename = userFile.substr(userFile.find("/") + 1);
+
+                int oldMainDisk = rmDisk;
+                int newMainDisk = partitionArray[pNum];
+                int oldBackupDisk = rmDisk + 1;
+                int newBackupDisk;
+                if (partitionArray[pNum] == (rmDisk - 1))
+                    newBackupDisk = partitionArray[pNum] + 2; // rmDisk + 1
+                else if (partitionArray[pNum] == (numDisks - 1))
+                    newBackupDisk = 0;
+                else
+                    newBackupDisk = partitionArray[pNum] + 1;
+
+                if (newMainDisk != oldMainDisk) {
+                    moveMain(login_name, username, filename, DiskList, oldMainDisk, newMainDisk);
+                    deleteOldMain(login_name, username, filename, DiskList, oldMainDisk);
+
+                    string filePath = login_name + "/" + username + "/" + filename;
+                    DiskList[newMainDisk].fileList.push_back(filePath);
+                }
+                if (newBackupDisk != oldBackupDisk) {
+                    moveBackup(login_name, username, filename, DiskList, oldBackupDisk, newBackupDisk);
+                    deleteOldBackup(login_name, username, filename, DiskList, oldBackupDisk);
+
+                    string filePath = login_name + "/backupFolder/" + username + "/" + filename;
+                    DiskList[newBackupDisk].fileList.push_back(filePath);
+
+                    auto& backupFileList = DiskList[oldBackupDisk].fileList;
+                    backupFileList.erase(remove_if(backupFileList.begin(), backupFileList.end(),
+                        [&](const string& file) { 
+                            return file.find("/backupFolder/" + username + "/" + filename) != string::npos; 
+                        }), backupFileList.end());
+                }
             }
         }
     }
